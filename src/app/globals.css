@@ -1,27 +1,117 @@
+/* src/app/globals.css */
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+/* Import the 'Ubuntu Mono' font from Google Fonts */
+@import url('https://fonts.googleapis.com/css2?family=Ubuntu+Mono:wght@400;700&display=swap');
+
+/* Apply "Ubuntu Mono" font across all terminal-related elements */
+.terminal-window,
+.terminal-window * {
+  font-family: 'Ubuntu Mono', monospace !important;
+  line-height: 1.5;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+/* Glassmorphism for Taskbar */
+.taskbar {
+  background-color: rgba(34, 34, 34, 0.2); /* Semi-transparent glass effect */
+  backdrop-filter: blur(2px); /* Apply blur to the taskbar */
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1); /* Light border */
+  border-radius: 0 0 0 0;
+  height: 55px;
+  padding: 0 10px;
+  z-index: 9999; /* Keep taskbar on top */
+  position: fixed; /* Ensure taskbar is fixed at the top */
+  top: 0;
+  left: 0;
+  width: 100%;
+}
+
+/* Define CSS Variables for Colors */
+:root {
+  --background: #181818; /* Darker background for the grid */
+  --foreground: #e0e0e0; /* Light text color */
+  --toolbar-bg: rgba(25, 25, 25, 0.5); /* Transparent toolbar background */
+  --terminal-bg: rgba(25, 25, 25, 0.5); /* Transparent terminal window background */
+  --border-color: rgba(255, 255, 255, 0.1); /* Subtle border for glass effect */
+  --backdrop-blur: blur(2px); /* Blur effect for glassmorphism */
+}
+
+/* Ensure the overall app background is unchanged */
+html, body {
+  overflow: hidden;
+  height: 100%;
+  width: 100%;
+  color: var(--foreground);
+  background-color: var(--background); /* Dark grid background */
+}
+
+#__next {
+  height: 100%;
+  width: 100%;
 }
 
 body {
-  color: var(--foreground);
+  font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
   background: var(--background);
-  font-family: Arial, Helvetica, sans-serif;
 }
 
+/* Toolbar and Terminal Window with Glassmorphism */
+.terminal-window {
+  cursor: text; /* Change the cursor to text selection inside the terminal */
+  background-color: var(--terminal-bg); /* Transparent glass effect */
+  backdrop-filter: var(--backdrop-blur); /* Apply blur to terminal */
+  border: 1px solid var(--border-color); /* Light border */
+  border-radius: 12px; /* Rounded corners for modern look */
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1); /* Soft shadow */
+}
+
+.terminal-header {
+  background-color: var(--toolbar-bg); /* Glass effect for toolbar */
+  backdrop-filter: var(--backdrop-blur); /* Blur for toolbar */
+  border-bottom: 0px solid var(--border-color); /* Bottom border for toolbar */
+  border-radius: 12px 12px 0 0; /* Round only top corners */
+}
+
+/* Custom Utilities */
 @layer utilities {
   .text-balance {
     text-wrap: balance;
   }
+}
+
+/* Blinking Cursor */
+@keyframes blink {
+  0% { opacity: 1; }
+  50% { opacity: 0; }
+  100% { opacity: 1; }
+}
+
+/* Blinking green cursor */
+.blinking-cursor {
+  color: #00ff00; /* Green color for the cursor */
+  animation: blink 1s step-start infinite;
+  font-weight: bold;
+  margin-left: 2px;
+  display: inline-block;
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.2);
 }
