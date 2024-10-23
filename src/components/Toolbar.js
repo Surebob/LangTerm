@@ -1,22 +1,59 @@
+// Toolbar.js
 "use client";
 
 import React, { useContext, useRef, useState, useEffect } from 'react';
 import { TerminalContext } from '../context/TerminalContext';
-import { Settings, SquareTerminal, ChevronLeft, ChevronRight, Eye, EyeOff } from 'lucide-react';
+import {
+  Settings,
+  SquareTerminal,
+  ChevronLeft,
+  ChevronRight,
+  Eye,
+  EyeOff,
+  ChevronRight as ArrowRight,
+  Code2,
+} from 'lucide-react';
 
 const Toolbar = () => {
-  const { 
-    addTerminal, 
-    terminals, 
-    toggleMinimizeTerminal, 
+  const {
+    addTerminal,
+    terminals,
+    toggleMinimizeTerminal,
     closeTerminal,
     centerOnTerminal,
   } = useContext(TerminalContext);
-  
+
   const scrollContainerRef = useRef(null);
   const scrollIntervalRef = useRef(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(false);
+
+  // Dropdown menu state
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [openSubmenu, setOpenSubmenu] = useState(null);
+
+  // Refs for menu and button
+  const menuRef = useRef(null);
+  const buttonRef = useRef(null);
+
+  // Close menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (
+        menuRef.current &&
+        !menuRef.current.contains(event.target) &&
+        !buttonRef.current.contains(event.target)
+      ) {
+        setIsMenuOpen(false);
+        setOpenSubmenu(null);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
 
   // Check for scrollability and adjust arrows visibility
   const checkScroll = () => {
@@ -38,7 +75,7 @@ const Toolbar = () => {
     if (scrollContainer) {
       scrollContainer.addEventListener('scroll', checkScroll);
       checkScroll();
-      
+
       const resizeObserver = new ResizeObserver(checkScroll);
       resizeObserver.observe(scrollContainer);
 
@@ -62,7 +99,7 @@ const Toolbar = () => {
       const scrollAmount = 170; // The width of one terminal item
       scrollContainerRef.current.scrollBy({
         left: direction * scrollAmount,
-        behavior: 'smooth'
+        behavior: 'smooth',
       });
     }
   };
@@ -70,7 +107,7 @@ const Toolbar = () => {
   const startAutoScroll = (direction) => {
     if (scrollIntervalRef.current) return;
     scroll(direction === 'left' ? -1 : 1);
-    
+
     scrollIntervalRef.current = setInterval(() => {
       if (direction === 'left' && !canScrollLeft) {
         stopAutoScroll();
@@ -108,26 +145,164 @@ const Toolbar = () => {
     }
   };
 
-  const buttonBaseStyles = `flex items-center justify-center
-  bg-glassmorphism text-white rounded cursor-pointer
-  border border-white/20 backdrop-blur-md transition-all duration-200
-  hover:bg-white/10 hover:scale-105
+  // Updated buttonBaseStyles with hover effects
+  const buttonBaseStyles = `
+    flex items-center justify-center
+    bg-glassmorphism text-white rounded cursor-pointer
+    border border-white/20 backdrop-blur-md transition-all duration-200
+    hover:bg-white/10 hover:scale-105
   `;
-  
-  const actionButtonStyles = `${buttonBaseStyles} w-9 h-9 group`;
+  const actionButtonStyles = `${buttonBaseStyles} w-9 h-9`;
   const terminalButtonStyles = `${buttonBaseStyles} w-6 h-6 text-sm`;
-  
+
   return (
     <div className="taskbar fixed bottom-0 left-0 w-full flex items-center h-12">
       {/* Left Section with Add Terminal */}
-      <div className="flex items-center pl-2 z-30">
+      <div className="flex items-center pl-2 z-30 relative">
         <button
-          onClick={addTerminal}
+          ref={buttonRef}
+          onClick={() => setIsMenuOpen((prev) => !prev)}
           className={actionButtonStyles}
-          aria-label="Add New Terminal"
+          aria-label="Add Terminal Menu"
         >
           <SquareTerminal size={24} />
         </button>
+        {/* Dropdown Menu */}
+        {isMenuOpen && (
+          <div
+            ref={menuRef}
+            className="dropdown-menu absolute bottom-full w-56 mb-5"
+          >
+            <ul className="py-2 relative">
+              {/* Add Terminal Item */}
+              <li
+                onClick={() => {
+                  addTerminal();
+                  setIsMenuOpen(false);
+                }}
+                className="flex items-center px-4 py-2 hover:bg-white/10 cursor-pointer transition-colors duration-200"
+              >
+                <Code2 size={16} className="mr-2" />
+                Add Terminal
+              </li>
+              {/* Separator */}
+              <hr className="my-1 border-white/20" />
+              {/* Submenu Item */}
+              <li className="relative">
+                <div
+                  onClick={() =>
+                    setOpenSubmenu((prev) => (prev === 'submenu1' ? null : 'submenu1'))
+                  }
+                  className="flex items-center px-4 py-2 hover:bg-white/10 cursor-pointer transition-colors duration-200"
+                >
+                  <Code2 size={16} className="mr-2" />
+                  SSH Connections
+                  <ArrowRight size={16} className="ml-auto" />
+                </div>
+                {/* Submenu */}
+                {openSubmenu === 'submenu1' && (
+                  <ul className="dropdown-menu absolute bottom-0 left-full w-56 transform translate-x-2" style={{ transform: 'translate(4px, 9px)' }}>
+                  <li
+                      onClick={() => {
+                        /* Placeholder action */
+                        setIsMenuOpen(false);
+                        setOpenSubmenu(null);
+                      }}
+                      className="flex items-center px-4 py-2 hover:bg-white/10 cursor-pointer transition-colors duration-200"
+                    >
+                      <Code2 size={16} className="mr-2" />
+                      104.53.45.133:20
+                    </li>
+                    {/* Sub-submenu Item */}
+                    <li className="relative">
+                      <div
+                        onClick={() =>
+                          setOpenSubmenu((prev) =>
+                            prev === 'submenu1-1' ? null : 'submenu1-1'
+                          )
+                        }
+                        className="flex items-center px-4 py-2 hover:bg-white/10 cursor-pointer transition-colors duration-200"
+                      >
+                        <Code2 size={16} className="mr-2" />
+                        192.168.0.32:20
+                      </div>
+                    </li>
+                    {/* Sub-submenu Item */}
+                    <li className="relative">
+                      <div
+                        onClick={() =>
+                          setOpenSubmenu((prev) =>
+                            prev === 'submenu1-1' ? null : 'submenu1-1'
+                          )
+                        }
+                        className="flex items-center px-4 py-2 hover:bg-white/10 cursor-pointer transition-colors duration-200"
+                      >
+                        <Code2 size={16} className="mr-2" />
+                        138.110.18.144:20
+                      </div>
+                    </li>
+                    {/* Sub-submenu Item */}
+                    <li className="relative">
+                      <div
+                        onClick={() =>
+                          setOpenSubmenu((prev) =>
+                            prev === 'submenu1-1' ? null : 'submenu1-1'
+                          )
+                        }
+                        className="flex items-center px-4 py-2 hover:bg-white/10 cursor-pointer transition-colors duration-200"
+                      >
+                        <Code2 size={16} className="mr-2" />
+                        166.87.70.131:20
+                      </div>
+                    </li>
+                    {/* Sub-submenu Item */}
+                    <li className="relative">
+                      <div
+                        onClick={() =>
+                          setOpenSubmenu((prev) =>
+                            prev === 'submenu1-1' ? null : 'submenu1-1'
+                          )
+                        }
+                        className="flex items-center px-4 py-2 hover:bg-white/10 cursor-pointer transition-colors duration-200"
+                      >
+                        <Code2 size={16} className="mr-2" />
+                        221.212.15.83:20
+                      </div>
+                    </li>
+                    {/* Sub-submenu Item */}
+                    <li className="relative">
+                      <div
+                        onClick={() =>
+                          setOpenSubmenu((prev) =>
+                            prev === 'submenu1-1' ? null : 'submenu1-1'
+                          )
+                        }
+                        className="flex items-center px-4 py-2 hover:bg-white/10 cursor-pointer transition-colors duration-200"
+                      >
+                        <Code2 size={16} className="mr-2" />
+                        163.171.16.177:20
+                      </div>
+                    </li>
+                    {/* Sub-submenu Item */}
+                    <li className="relative">
+                      <div
+                        onClick={() =>
+                          setOpenSubmenu((prev) =>
+                            prev === 'submenu1-1' ? null : 'submenu1-1'
+                          )
+                        }
+                        className="flex items-center px-4 py-2 hover:bg-white/10 cursor-pointer transition-colors duration-200"
+                      >
+                        <Code2 size={16} className="mr-2" />
+                        247.25.44.24:20
+                      </div>
+                    </li>
+                  </ul>
+                )}
+              </li>
+            </ul>
+          </div>
+        )}
         <div className="h-6 w-px bg-white/20 mx-2"></div>
       </div>
 
@@ -139,12 +314,12 @@ const Toolbar = () => {
             onMouseDown={() => startAutoScroll('left')}
             onMouseUp={stopAutoScroll}
             onMouseLeave={stopAutoScroll}
-            className={`${buttonBaseStyles} w-9 h-9 group hover:bg-white/10`}
+            className={`${buttonBaseStyles} w-9 h-9 hover:bg-white/10`}
             aria-label="Scroll Left"
           >
-            <ChevronLeft 
+            <ChevronLeft
               size={20}
-              className="text-white/70 group-hover:text-white transition-colors duration-200"
+              className="text-white/70 transition-colors duration-200"
             />
           </button>
         </div>
@@ -166,11 +341,13 @@ const Toolbar = () => {
             key={terminal.id}
             onClick={() => !terminal.isMinimized && centerOnTerminal(terminal.id)}
             className={`h-9 flex items-center bg-glassmorphism bg-opacity-70 px-3 rounded backdrop-blur-lg border border-white/20 transition-all duration-200 hover:bg-white/10 max-w-[170px] flex-shrink-0 ${
-              terminal.isMinimized ? 'opacity-50 cursor-default' : 'opacity-100 cursor-pointer'
+              terminal.isMinimized
+                ? 'opacity-50 cursor-default'
+                : 'opacity-100 cursor-pointer'
             }`}
           >
-            <span className="text-white whitespace-nowrap overflow-hidden text-ellipsis flex-1 mr-3 ">
-              {terminal.name || "Terminal"}
+            <span className="text-white whitespace-nowrap overflow-hidden text-ellipsis flex-1 mr-3">
+              {terminal.name || 'Terminal'}
             </span>
             <div className="flex-shrink-0 flex items-center gap-1.5">
               <button
@@ -179,7 +356,9 @@ const Toolbar = () => {
                   toggleMinimizeTerminal(terminal.id);
                 }}
                 className={terminalButtonStyles}
-                aria-label={terminal.isMinimized ? "Show Terminal" : "Hide Terminal"}
+                aria-label={
+                  terminal.isMinimized ? 'Show Terminal' : 'Hide Terminal'
+                }
               >
                 {terminal.isMinimized ? (
                   <Eye size={14} />
@@ -210,12 +389,12 @@ const Toolbar = () => {
             onMouseDown={() => startAutoScroll('right')}
             onMouseUp={stopAutoScroll}
             onMouseLeave={stopAutoScroll}
-            className={`${buttonBaseStyles} w-9 h-9 group hover:bg-white/10`}
+            className={`${buttonBaseStyles} w-9 h-9 hover:bg-white/10`}
             aria-label="Scroll Right"
           >
-            <ChevronRight 
+            <ChevronRight
               size={20}
-              className="text-white/70 group-hover:text-white transition-colors duration-200"
+              className="text-white/70 transition-colors duration-200"
             />
           </button>
         </div>
@@ -225,7 +404,9 @@ const Toolbar = () => {
       <div className="flex items-center pr-2 z-30">
         <div className="h-6 w-px bg-white/20 mx-2"></div>
         <button
-          onClick={() => {/* Add settings handler */}}
+          onClick={() => {
+            /* Add settings handler */
+          }}
           className={actionButtonStyles}
           aria-label="Settings"
         >

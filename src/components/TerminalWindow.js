@@ -1,3 +1,4 @@
+// TerminalWindow.js
 "use client";
 
 import React, { useContext, useState, useRef } from "react";
@@ -20,10 +21,20 @@ const TerminalWindow = () => {
     user, // Added user from context
   } = useContext(TerminalContext);
 
+  // ASCII Art to be displayed
+  const asciiArt = 
+  `
+    ██╗      █████╗ ███╗   ██╗ ██████╗████████╗███████╗██████╗ ███╗   ███╗
+    ██║     ██╔══██╗████╗  ██║██╔════╝╚══██╔══╝██╔════╝██╔══██╗████╗ ████║
+    ██║     ███████║██╔██╗ ██║██║  ███╗  ██║   █████╗  ██████╔╝██╔████╔██║
+    ██║     ██╔══██║██║╚██╗██║██║   ██║  ██║   ██╔══╝  ██╔══██╗██║╚██╔╝██║
+    ███████╗██║  ██║██║ ╚████║╚██████╔╝  ██║   ███████╗██║  ██║██║ ╚═╝ ██║
+    ╚══════╝╚═╝  ╚═╝╚═╝  ╚═══╝ ╚═════╝   ╚═╝   ╚══════╝╚═╝  ╚═╝╚═╝     ╚═╝
+ `;
+
   const [editingTerminalId, setEditingTerminalId] = useState(null);
   const [tempName, setTempName] = useState("");
   const [terminalInputs, setTerminalInputs] = useState({});
-  const [caretPositions, setCaretPositions] = useState({});
   const inputRefs = useRef({});
   const dragRefs = useRef({});
   const [isDragging, setIsDragging] = useState(false);
@@ -58,21 +69,11 @@ const TerminalWindow = () => {
     }));
   };
 
-  const getCaretPosition = (id) => caretPositions[id] || 0;
-
-  const setCaretPosition = (id, value) => {
-    setCaretPositions((prev) => ({
-      ...prev,
-      [id]: value,
-    }));
-  };
-
   const handleCommandSubmit = (id) => {
     const currentInput = getCurrentInput(id);
     const output = executeCommand(currentInput);
     addCommandToTerminal(id, currentInput, output);
     setCurrentInput(id, "");
-    setCaretPosition(id, 0);
   };
 
   const executeCommand = (command) => {
@@ -142,40 +143,23 @@ const TerminalWindow = () => {
   };
 
   const handleKeyDown = (e, id) => {
-    const { key } = e;
-    let pos = getCaretPosition(id);
-    let currentInput = getCurrentInput(id);
-
-    if (key === "ArrowLeft") {
-      if (pos > 0) {
-        setCaretPosition(id, pos - 1);
-      }
-    } else if (key === "ArrowRight") {
-      if (pos < currentInput.length) {
-        setCaretPosition(id, pos + 1);
-      }
-    } else if (key === "Delete") {
+    if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
-      if (pos < currentInput.length) {
-        const updatedInput =
-          currentInput.slice(0, pos) + currentInput.slice(pos + 1);
-        setCurrentInput(id, updatedInput);
-        setCaretPosition(id, pos);
-      }
-    } else if (key === "Backspace") {
-      e.preventDefault();
-      if (pos > 0) {
-        const updatedInput =
-          currentInput.slice(0, pos - 1) + currentInput.slice(pos);
-        setCurrentInput(id, updatedInput);
-        setCaretPosition(id, pos - 1);
-      }
+      handleCommandSubmit(id);
     }
   };
 
   const handleInputChange = (e, id) => {
     setCurrentInput(id, e.target.value);
-    setCaretPosition(id, e.target.selectionStart);
+    adjustTextareaHeight(id);
+  };
+
+  const adjustTextareaHeight = (id) => {
+    const textarea = inputRefs.current[id];
+    if (textarea) {
+      textarea.style.height = 'auto';
+      textarea.style.height = textarea.scrollHeight + 'px';
+    }
   };
 
   const handleMinimizeClick = (e, id) => {
@@ -189,6 +173,21 @@ const TerminalWindow = () => {
   };
 
   React.useEffect(() => {
+    const handleMouseMove = (e) => {
+      if (!isDragging || !dragRefs.current.activeId) return;
+  
+      const terminal = terminals.find((t) => t.id === dragRefs.current.activeId);
+      if (!terminal) return;
+  
+      const newX = (e.clientX - dragStart.x - gridPosition.x) / zoomLevel;
+      const newY = (e.clientY - dragStart.y - gridPosition.y) / zoomLevel;
+  
+      updateTerminalPosition(terminal.id, {
+        x: newX,
+        y: newY,
+      });
+    };
+  
     if (isDragging) {
       window.addEventListener('mousemove', handleMouseMove);
       window.addEventListener('mouseup', handleMouseUp);
@@ -197,7 +196,7 @@ const TerminalWindow = () => {
       window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('mouseup', handleMouseUp);
     };
-  }, [isDragging, dragStart]);
+  }, [isDragging, dragStart, gridPosition, zoomLevel, terminals, updateTerminalPosition]);
 
   return (
     <>
@@ -286,17 +285,33 @@ const TerminalWindow = () => {
 
               {/* Terminal Body */}
               <div
-                className="flex-1 bg-transparent p-2 text-green-400 overflow-auto"
-                style={{ fontSize: `${14 * zoomLevel}px` }}
+                className="flex-1 bg-transparent p-2 text-green-400 overflow-auto whitespace-pre-wrap"
+                style={{ fontSize: `${16 * zoomLevel}px` }}
               >
+                {/* Render ASCII Art */}
+                <pre
+                  className="text-green-400"
+                  style={{
+                    fontSize: `${16 * zoomLevel}px`,
+                    fontFamily: "monospace",
+                    whiteSpace: "pre",
+                    lineHeight: "normal",
+                    letterSpacing: "normal",
+                    display: "block",
+                    flex: "none",
+                  }}
+                >
+                  {asciiArt}
+                </pre>
+
                 {terminal.commands.map((cmd, index) => (
-                  <div key={index}>
+                  <div key={index} style={{ whiteSpace: "pre-wrap" }}>
                     <div>{`${promptText}${cmd.command}`}</div>
                     <div className="pl-4 text-yellow-300">{cmd.output}</div>
                   </div>
                 ))}
 
-                {/* Command Input with Blinking Green Cursor */}
+                {/* Command Input with Word Wrap */}
                 <div className="flex relative">
                   <span className="text-green-400">{promptText}</span>
                   <form
@@ -306,35 +321,26 @@ const TerminalWindow = () => {
                       handleCommandSubmit(terminal.id);
                     }}
                   >
-                    <input
-                      type="text"
+                    <textarea
                       name="command"
                       value={getCurrentInput(terminal.id)}
                       onChange={(e) => handleInputChange(e, terminal.id)}
                       onKeyDown={(e) => handleKeyDown(e, terminal.id)}
-                      className="w-full bg-transparent text-green-400 outline-none"
+                      className="w-full bg-transparent text-green-400 outline-none resize-none"
                       autoFocus
                       autoComplete="off"
                       ref={(el) => (inputRefs.current[terminal.id] = el)}
                       spellCheck={false}
                       autoCorrect="off"
+                      rows={1}
                       style={{
-                        fontSize: `${14 * zoomLevel}px`,
-                        caretColor: "transparent",
+                        fontSize: `${16 * zoomLevel}px`,
+                        lineHeight: '1.5',
+                        caretColor: "green",
+                        overflow: 'hidden',
+                        whiteSpace: 'pre-wrap',
                       }}
                     />
-                    <span
-                      className="blinking-cursor absolute"
-                      style={{
-                        left: `calc(${getCaretPosition(
-                          terminal.id
-                        )}ch + ${promptText.length}ch)`,
-                        top: "50%",
-                        transform: "translateY(-50%)",
-                      }}
-                    >
-                      _
-                    </span>
                   </form>
                 </div>
               </div>

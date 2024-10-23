@@ -83,7 +83,7 @@ export const TerminalProvider = ({ children }) => {
         x: 100 + terminals.length * offset, 
         y: 100 + terminals.length * offset 
       },
-      size: { width: 500, height: 300 },
+      size: { width: 645, height: 225 },
       commands: [],
       zIndex: highestZIndex + 1,
     };

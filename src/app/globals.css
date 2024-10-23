@@ -28,6 +28,14 @@
   width: 100%;
 }
 
+/* Glassmorphism for Dropdown Menu */
+.dropdown-menu {
+  background-color: var(--terminal-bg); /* Use the same transparent background as terminal windows */
+  backdrop-filter: var(--backdrop-blur); /* Apply blur effect */
+  border: 1px solid var(--border-color); /* Light border */
+  border-radius: 8px; /* Slightly smaller radius than terminal windows */
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1); /* Soft shadow */
+}
 /* Define CSS Variables for Colors */
 :root {
   --background: #181818; /* Darker background for the grid */
