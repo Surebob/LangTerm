@@ -108,7 +108,12 @@ const Toolbar = () => {
     }
   };
 
-  const buttonBaseStyles = "flex items-center justify-center bg-glassmorphism hover:bg-glassmorphism-hover text-white rounded cursor-pointer border border-white/20 backdrop-blur-md transition-colors duration-200";
+  const buttonBaseStyles = `flex items-center justify-center
+  bg-glassmorphism text-white rounded cursor-pointer
+  border border-white/20 backdrop-blur-md transition-all duration-200
+  hover:bg-white/10 hover:scale-105
+  `;
+  
   const actionButtonStyles = `${buttonBaseStyles} w-9 h-9 group`;
   const terminalButtonStyles = `${buttonBaseStyles} w-6 h-6 text-sm`;
   
@@ -164,7 +169,7 @@ const Toolbar = () => {
               terminal.isMinimized ? 'opacity-50 cursor-default' : 'opacity-100 cursor-pointer'
             }`}
           >
-            <span className="text-white whitespace-nowrap overflow-hidden text-ellipsis flex-1 mr-3">
+            <span className="text-white whitespace-nowrap overflow-hidden text-ellipsis flex-1 mr-3 ">
               {terminal.name || "Terminal"}
             </span>
             <div className="flex-shrink-0 flex items-center gap-1.5">
