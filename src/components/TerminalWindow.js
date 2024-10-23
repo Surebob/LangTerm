@@ -260,7 +260,7 @@ const TerminalWindow = () => {
                     {terminal.name || "LangTerm"}
                   </span>
                 )}
-                <div className="ml-auto flex space-x-2">
+                <div className="ml-auto flex" style={{ gap: `${8 * zoomLevel}px` }}>
                   <button
                     onClick={(e) => handleMinimizeClick(e, terminal.id)}
                     className="w-3 h-3 bg-yellow-400 rounded-full focus:outline-none cursor-pointer"
@@ -268,6 +268,7 @@ const TerminalWindow = () => {
                     style={{
                       width: `${16 * zoomLevel}px`,
                       height: `${16 * zoomLevel}px`,
+                      flexShrink: 0, // Prevent button from shrinking
                     }}
                   ></button>
                   <button
@@ -277,6 +278,7 @@ const TerminalWindow = () => {
                     style={{
                       width: `${16 * zoomLevel}px`,
                       height: `${16 * zoomLevel}px`,
+                      flexShrink: 0, // Prevent button from shrinking
                     }}
                   ></button>
                 </div>

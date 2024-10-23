@@ -3,6 +3,10 @@
 import React, { createContext, useState, useEffect } from 'react';
 import { supabase } from '../lib/supabaseClient';
 
+const updateGridPosition = (newPosition) => {
+  setGridPosition(newPosition);
+};
+
 export const TerminalContext = createContext();
 
 export const TerminalProvider = ({ children }) => {
@@ -12,6 +16,25 @@ export const TerminalProvider = ({ children }) => {
   const [highestZIndex, setHighestZIndex] = useState(1);
   const [user, setUser] = useState(null);
   const [session, setSession] = useState(null);
+
+
+  const centerOnTerminal = (terminalId) => {
+    const terminal = terminals.find(t => t.id === terminalId);
+    if (terminal) {
+      const windowWidth = window.innerWidth;
+      const windowHeight = window.innerHeight;
+      
+      // Calculate terminal's center point by adding half its dimensions
+      const terminalCenterX = terminal.position.x + (terminal.size.width / 2);
+      const terminalCenterY = terminal.position.y + (terminal.size.height / 2);
+      
+      // Calculate grid position that would center the terminal
+      const centerX = (windowWidth / 2) - (terminalCenterX * zoomLevel);
+      const centerY = (windowHeight / 2) - (terminalCenterY * zoomLevel);
+      
+      setGridPosition({ x: centerX, y: centerY });
+    }
+  };
 
   // Session management
   useEffect(() => {
@@ -177,6 +200,7 @@ export const TerminalProvider = ({ children }) => {
         terminals,
         gridPosition,
         zoomLevel,
+        centerOnTerminal,
         setZoomLevel,
         addTerminal,
         toggleMinimizeTerminal,

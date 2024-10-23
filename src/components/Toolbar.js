@@ -2,135 +2,204 @@
 
 import React, { useContext, useRef, useState, useEffect } from 'react';
 import { TerminalContext } from '../context/TerminalContext';
-import { Settings } from 'lucide-react';
-import { SquareTerminal } from 'lucide-react';
-
+import { Settings, SquareTerminal, ChevronLeft, ChevronRight, Eye, EyeOff } from 'lucide-react';
 
 const Toolbar = () => {
-  const { addTerminal, terminals, toggleMinimizeTerminal, closeTerminal } = useContext(TerminalContext);
+  const { 
+    addTerminal, 
+    terminals, 
+    toggleMinimizeTerminal, 
+    closeTerminal,
+    centerOnTerminal,
+  } = useContext(TerminalContext);
+  
   const scrollContainerRef = useRef(null);
+  const scrollIntervalRef = useRef(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(false);
 
-  const minimizedTerminals = terminals.filter((terminal) => terminal.isMinimized);
-
+  // Check for scrollability and adjust arrows visibility
   const checkScroll = () => {
     if (scrollContainerRef.current) {
       const { scrollLeft, scrollWidth, clientWidth } = scrollContainerRef.current;
+      const hasOverflow = scrollWidth > clientWidth;
       setCanScrollLeft(scrollLeft > 0);
-      setCanScrollRight(scrollLeft < scrollWidth - clientWidth);
+      setCanScrollRight(hasOverflow && scrollLeft < scrollWidth - clientWidth);
     }
   };
+
+  useEffect(() => {
+    window.addEventListener('resize', checkScroll);
+    return () => window.removeEventListener('resize', checkScroll);
+  }, []);
 
   useEffect(() => {
     const scrollContainer = scrollContainerRef.current;
     if (scrollContainer) {
       scrollContainer.addEventListener('scroll', checkScroll);
       checkScroll();
-      return () => scrollContainer.removeEventListener('scroll', checkScroll);
+      
+      const resizeObserver = new ResizeObserver(checkScroll);
+      resizeObserver.observe(scrollContainer);
+
+      return () => {
+        scrollContainer.removeEventListener('scroll', checkScroll);
+        resizeObserver.disconnect();
+      };
     }
-  }, [minimizedTerminals]);
+  }, [terminals]);
+
+  useEffect(() => {
+    return () => {
+      if (scrollIntervalRef.current) {
+        clearInterval(scrollIntervalRef.current);
+      }
+    };
+  }, []);
 
   const scroll = (direction) => {
     if (scrollContainerRef.current) {
+      const scrollAmount = 170; // The width of one terminal item
       scrollContainerRef.current.scrollBy({
-        left: direction * 200,
+        left: direction * scrollAmount,
         behavior: 'smooth'
       });
     }
   };
 
-  // Common button styles
+  const startAutoScroll = (direction) => {
+    if (scrollIntervalRef.current) return;
+    scroll(direction === 'left' ? -1 : 1);
+    
+    scrollIntervalRef.current = setInterval(() => {
+      if (direction === 'left' && !canScrollLeft) {
+        stopAutoScroll();
+        return;
+      }
+      if (direction === 'right' && !canScrollRight) {
+        stopAutoScroll();
+        return;
+      }
+      scroll(direction === 'left' ? -1 : 1);
+    }, 200);
+  };
+
+  const stopAutoScroll = () => {
+    if (scrollIntervalRef.current) {
+      clearInterval(scrollIntervalRef.current);
+      scrollIntervalRef.current = null;
+    }
+  };
+
   const buttonBaseStyles = "flex items-center justify-center bg-glassmorphism hover:bg-glassmorphism-hover text-white rounded cursor-pointer border border-white/20 backdrop-blur-md transition-colors duration-200";
-
-  // Action button styles (+ and settings)
-  const actionButtonStyles = `${buttonBaseStyles} w-9 h-9`;
-
-  // Terminal control button styles (minimize and close)
+  const actionButtonStyles = `${buttonBaseStyles} w-9 h-9 group`;
   const terminalButtonStyles = `${buttonBaseStyles} w-6 h-6 text-sm`;
-
+  
   return (
     <div className="taskbar fixed bottom-0 left-0 w-full flex items-center h-12">
-      {/* Left Section */}
-      <div className="flex items-center flex-shrink-0 pl-2">
+      {/* Left Section with Add Terminal */}
+      <div className="flex items-center pl-2 z-30">
         <button
           onClick={addTerminal}
           className={actionButtonStyles}
           aria-label="Add New Terminal"
         >
-          <SquareTerminal />
+          <SquareTerminal size={18} />
         </button>
         <div className="h-6 w-px bg-white/20 mx-2"></div>
       </div>
 
-      {/* Middle Section */}
-      <div className="flex-1 flex items-center relative px-8">
-        {/* Left Arrow */}
-        <button
-          onClick={() => scroll(-1)}
-          className={`absolute left-0 z-10 text-white px-2 h-full transition-opacity duration-200 ${
-            canScrollLeft 
-              ? 'opacity-100 hover:bg-white/10' 
-              : 'opacity-0 pointer-events-none'
-          }`}
-          aria-label="Scroll Left"
-        >
-          ◄
-        </button>
-
-        {/* Terminals Container */}
-        <div
-          ref={scrollContainerRef}
-          className="flex-1 overflow-x-auto flex gap-2 scroll-smooth px-2"
-          style={{
-            scrollbarWidth: 'none',
-            msOverflowStyle: 'none'
-          }}
-        >
-          {minimizedTerminals.map((terminal) => (
-            <div
-              key={terminal.id}
-              className="h-9 flex items-center bg-glassmorphism bg-opacity-70 px-3 rounded backdrop-blur-lg border border-white/20 transition-all duration-200 hover:bg-white/10 max-w-[170px]"
-            >
-              <span className="text-white whitespace-nowrap overflow-hidden text-ellipsis flex-1 mr-3">
-                {terminal.name || "Terminal"}
-              </span>
-              <div className="flex-shrink-0 flex items-center gap-1.5">
-                <button
-                  onClick={() => toggleMinimizeTerminal(terminal.id)}
-                  className={terminalButtonStyles}
-                  aria-label="Restore Terminal"
-                >
-                  ❒
-                </button>
-                <button
-                  onClick={() => closeTerminal(terminal.id)}
-                  className={`${terminalButtonStyles} bg-red-400/30 hover:bg-red-500/50`}
-                  aria-label="Close Terminal"
-                >
-                  ✕
-                </button>
-              </div>
-            </div>
-          ))}
+      {/* Left Arrow (Outside Flexbox) */}
+      {canScrollLeft && (
+        <div className="z-20 bg-gradient-to-r from-[#181818] to-transparent pl-1 pr-1">
+          <button
+            onClick={() => scroll(-1)}
+            onMouseDown={() => startAutoScroll('left')}
+            onMouseUp={stopAutoScroll}
+            onMouseLeave={stopAutoScroll}
+            className={`${buttonBaseStyles} w-9 h-9 group hover:bg-white/10`}
+            aria-label="Scroll Left"
+          >
+            <ChevronLeft 
+              size={20}
+              className="text-white/70 group-hover:text-white transition-colors duration-200"
+            />
+          </button>
         </div>
+      )}
 
-        {/* Right Arrow */}
-        <button
-          onClick={() => scroll(1)}
-          className={`absolute right-0 z-10 text-white px-2 h-full transition-opacity duration-200 ${
-            canScrollRight 
-              ? 'opacity-100 hover:bg-white/10' 
-              : 'opacity-0 pointer-events-none'
-          }`}
-          aria-label="Scroll Right"
-        >
-          ►
-        </button>
+      {/* Terminals Container (Flexbox) */}
+      <div
+        ref={scrollContainerRef}
+        className="flex-1 flex overflow-x-hidden items-center gap-1"
+        style={{
+          scrollbarWidth: 'none',
+          msOverflowStyle: 'none',
+          scrollBehavior: 'smooth'
+        }}
+      >
+        {terminals.map((terminal) => (
+          <div
+            key={terminal.id}
+            onClick={() => !terminal.isMinimized && centerOnTerminal(terminal.id)}
+            className={`h-9 flex items-center bg-glassmorphism bg-opacity-70 px-3 rounded backdrop-blur-lg border border-white/20 transition-all duration-200 hover:bg-white/10 max-w-[170px] flex-shrink-0 ${
+              terminal.isMinimized ? 'opacity-50 cursor-default' : 'opacity-100 cursor-pointer'
+            }`}
+          >
+            <span className="text-white whitespace-nowrap overflow-hidden text-ellipsis flex-1 mr-3">
+              {terminal.name || "Terminal"}
+            </span>
+            <div className="flex-shrink-0 flex items-center gap-1.5">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  toggleMinimizeTerminal(terminal.id);
+                }}
+                className={terminalButtonStyles}
+                aria-label={terminal.isMinimized ? "Show Terminal" : "Hide Terminal"}
+              >
+                {terminal.isMinimized ? (
+                  <Eye size={14} />
+                ) : (
+                  <EyeOff size={14} />
+                )}
+              </button>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  closeTerminal(terminal.id);
+                }}
+                className={`${terminalButtonStyles} bg-red-400/30 hover:bg-red-500/50`}
+                aria-label="Close Terminal"
+              >
+                ✕
+              </button>
+            </div>
+          </div>
+        ))}
       </div>
 
-      {/* Right Section */}
-      <div className="flex items-center flex-shrink-0 pr-2">
+      {/* Right Arrow (Outside Flexbox) */}
+      {canScrollRight && (
+        <div className="z-20 bg-gradient-to-l from-[#181818] to-transparent pl-1 pr-1">
+          <button
+            onClick={() => scroll(1)}
+            onMouseDown={() => startAutoScroll('right')}
+            onMouseUp={stopAutoScroll}
+            onMouseLeave={stopAutoScroll}
+            className={`${buttonBaseStyles} w-9 h-9 group hover:bg-white/10`}
+            aria-label="Scroll Right"
+          >
+            <ChevronRight 
+              size={20}
+              className="text-white/70 group-hover:text-white transition-colors duration-200"
+            />
+          </button>
+        </div>
+      )}
+
+      {/* Right Section with Settings */}
+      <div className="flex items-center pr-2 z-30">
         <div className="h-6 w-px bg-white/20 mx-2"></div>
         <button
           onClick={() => {/* Add settings handler */}}
