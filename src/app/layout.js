@@ -2,10 +2,6 @@
 
 import localFont from "next/font/local";
 import "./globals.css";
-import { TerminalProvider } from '../context/TerminalContext';
-import GridBackground from '../components/GridBackground';
-import Toolbar from '../components/Toolbar';
-import TerminalWindow from '../components/TerminalWindow';
 
 const geistSans = localFont({
   src: "./fonts/GeistVF.woff",
@@ -19,30 +15,17 @@ const geistMono = localFont({
 });
 
 export const metadata = {
-  title: "Quantum Terminal",
+  title: "LangTerm",
   description: "A modern terminal interface",
 };
 
 export default function RootLayout({ children }) {
   return (
-    <TerminalProvider>
-      <html lang="en">
-        <body
-          className={`${geistSans.variable} ${geistMono.variable} antialiased relative`}
-        >
-          {/* Grid Background */}
-          <GridBackground />
-
-          {/* Toolbar */}
-          <Toolbar />
-
-          {/* Terminal Windows */}
-          <TerminalWindow />
-
-          {/* Main Content */}
-          {children}
-        </body>
-      </html>
-    </TerminalProvider>
+    <html lang="en">
+      <body className={`${geistSans.variable} ${geistMono.variable} antialiased relative`}>
+        {/* Main Content */}
+        {children}
+      </body>
+    </html>
   );
 }

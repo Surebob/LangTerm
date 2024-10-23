@@ -18,13 +18,12 @@
 .taskbar {
   background-color: rgba(34, 34, 34, 0.2); /* Semi-transparent glass effect */
   backdrop-filter: blur(2px); /* Apply blur to the taskbar */
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1); /* Light border */
-  border-radius: 0 0 0 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.1); /* Light border */
   height: 55px;
   padding: 0 10px;
   z-index: 9999; /* Keep taskbar on top */
   position: fixed; /* Ensure taskbar is fixed at the top */
-  top: 0;
+  bottom: 0;
   left: 0;
   width: 100%;
 }
@@ -75,6 +74,75 @@ body {
   border-radius: 12px 12px 0 0; /* Round only top corners */
 }
 
+/* Glassmorphism for Login and Signup Modals */
+.glass-effect {
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  padding: 24px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.37);
+  max-width: 400px;
+  width: 100%;
+  margin: auto;
+  text-align: center;
+}
+
+/* Input Fields for Auth Pages */
+.auth-input {
+  background-color: rgba(255, 255, 255, 0.1);
+  color: white;
+  border: none;
+  backdrop-filter: blur(5px);
+  padding: 12px;
+  border-radius: 8px;
+  width: 100%;
+  margin-bottom: 16px;
+}
+
+.auth-input::placeholder {
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.auth-input:focus {
+  outline: none;
+  background-color: rgba(255, 255, 255, 0.2);
+}
+
+/* Auth Buttons */
+.auth-button {
+  background-color: rgba(0, 204, 255, 0.2);
+  border: none;
+  color: white;
+  padding: 10px 20px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+  width: 100%;
+}
+
+.auth-button:hover {
+  background-color: rgba(0, 204, 255, 0.4);
+}
+
+/* Auth Links */
+.auth-link {
+  color: #00ccff;
+  text-decoration: none;
+}
+
+.auth-link:hover {
+  color: #ffffff;
+}
+
+/* Centered layout for Auth Pages */
+.auth-container {
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
 /* Custom Utilities */
 @layer utilities {
   .text-balance {
@@ -98,6 +166,7 @@ body {
   display: inline-block;
 }
 
+/* Scrollbar Customization */
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
@@ -114,4 +183,15 @@ body {
 
 ::-webkit-scrollbar-track {
   background: rgba(0, 0, 0, 0.2);
+}
+
+/* Hide scrollbar for Chrome, Safari and Opera */
+.overflow-x-hidden::-webkit-scrollbar {
+  display: none;
+}
+
+/* Hide scrollbar for IE, Edge and Firefox */
+.overflow-x-hidden {
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { createContext, useState, useEffect } from 'react';
-import { supabase } from '../lib/supabaseClient'; // Import Supabase client
+import { supabase } from '../lib/supabaseClient';
 
 export const TerminalContext = createContext();
 
@@ -9,13 +9,12 @@ export const TerminalProvider = ({ children }) => {
   const [terminals, setTerminals] = useState([]);
   const [gridPosition, setGridPosition] = useState({ x: 0, y: 0 });
   const [zoomLevel, setZoomLevel] = useState(1);
-  const [highestZIndex, setHighestZIndex] = useState(1); // Track highest zIndex
+  const [highestZIndex, setHighestZIndex] = useState(1);
+  const [user, setUser] = useState(null);
+  const [session, setSession] = useState(null);
 
-  const [user, setUser] = useState(null); // Store logged-in user
-  const [session, setSession] = useState(null); // Store session
-
+  // Session management
   useEffect(() => {
-    // Supabase session check
     const checkSession = async () => {
       const { data: { session }, error } = await supabase.auth.getSession();
       if (!error) {
@@ -33,6 +32,7 @@ export const TerminalProvider = ({ children }) => {
     return () => authListener.subscription.unsubscribe();
   }, []);
 
+  // Load terminals from localStorage
   useEffect(() => {
     const storedTerminals = localStorage.getItem('terminals');
     if (storedTerminals) {
@@ -40,12 +40,13 @@ export const TerminalProvider = ({ children }) => {
     }
   }, []);
 
+  // Save terminals to localStorage
   useEffect(() => {
     localStorage.setItem('terminals', JSON.stringify(terminals));
   }, [terminals]);
 
   const addTerminal = () => {
-    const offset = 30; // Define an offset to prevent overlapping
+    const offset = 30;
     const newTerminal = {
       id: Date.now(),
       name: `Terminal ${terminals.length + 1}`,
@@ -53,14 +54,15 @@ export const TerminalProvider = ({ children }) => {
       position: { 
         x: 100 + terminals.length * offset, 
         y: 100 + terminals.length * offset 
-      }, // Unique position
-      size: { width: 500, height: 300 },
-      commands: [],
-      zIndex: highestZIndex + 1, // New terminal starts on top
+      },
+      lastPosition: null,
       originalPosition: { 
         x: 100 + terminals.length * offset, 
         y: 100 + terminals.length * offset 
-      }, // Remember original position
+      },
+      size: { width: 500, height: 300 },
+      commands: [],
+      zIndex: highestZIndex + 1,
     };
     setTerminals([...terminals, newTerminal]);
     setHighestZIndex((prev) => prev + 1);
@@ -77,10 +79,33 @@ export const TerminalProvider = ({ children }) => {
 
   const toggleMinimizeTerminal = (id) => {
     setTerminals((prevTerminals) =>
-      prevTerminals.map((terminal) =>
-        terminal.id === id ? { ...terminal, isMinimized: !terminal.isMinimized } : terminal
-      )
+      prevTerminals.map((terminal) => {
+        if (terminal.id === id) {
+          if (!terminal.isMinimized) {
+            // Minimizing: store current position and move off-screen
+            return {
+              ...terminal,
+              isMinimized: true,
+              lastPosition: terminal.position,
+              position: { x: -9999, y: -9999 }
+            };
+          } else {
+            // Restoring: return to last position or original position
+            return {
+              ...terminal,
+              isMinimized: false,
+              position: terminal.lastPosition || terminal.originalPosition,
+              zIndex: highestZIndex + 1
+            };
+          }
+        }
+        return terminal;
+      })
     );
+    // Ensure restored windows come to front
+    if (!terminals.find(t => t.id === id)?.isMinimized) {
+      setHighestZIndex((prev) => prev + 1);
+    }
   };
 
   const closeTerminal = (id) => {
@@ -90,7 +115,11 @@ export const TerminalProvider = ({ children }) => {
   const updateTerminalPosition = (id, position) => {
     setTerminals((prevTerminals) =>
       prevTerminals.map((terminal) =>
-        terminal.id === id ? { ...terminal, position } : terminal
+        terminal.id === id ? { 
+          ...terminal, 
+          position,
+          lastPosition: null // Clear lastPosition when manually moved
+        } : terminal
       )
     );
   };
@@ -125,12 +154,17 @@ export const TerminalProvider = ({ children }) => {
     setTerminals((prevTerminals) =>
       prevTerminals.map((terminal) => {
         if (terminal.id === id) {
-          // Restore to original position without checking for overlap
-          return { ...terminal, isMinimized: false, position: terminal.originalPosition };
+          return {
+            ...terminal,
+            isMinimized: false,
+            position: terminal.lastPosition || terminal.originalPosition,
+            zIndex: highestZIndex + 1
+          };
         }
         return terminal;
       })
     );
+    setHighestZIndex((prev) => prev + 1);
   };
 
   const updateGridPosition = (newPosition) => {
@@ -151,11 +185,11 @@ export const TerminalProvider = ({ children }) => {
         updateTerminalSize,
         addCommandToTerminal,
         updateTerminalName,
-        maximizeTerminal, // Retain maximize function in context
+        maximizeTerminal,
         updateGridPosition,
-        bringToFront, // Bring terminal to front function
-        user,         // Add user to context
-        session,      // Add session to context
+        bringToFront,
+        user,
+        session,
       }}
     >
       {children}
