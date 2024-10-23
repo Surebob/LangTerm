@@ -24,7 +24,7 @@ const Toolbar = () => {
       const { scrollLeft, scrollWidth, clientWidth } = scrollContainerRef.current;
       const hasOverflow = scrollWidth > clientWidth;
       setCanScrollLeft(scrollLeft > 0);
-      setCanScrollRight(hasOverflow && scrollLeft < scrollWidth - clientWidth);
+      setCanScrollRight(hasOverflow && scrollLeft + clientWidth < scrollWidth - 1);
     }
   };
 
@@ -91,6 +91,23 @@ const Toolbar = () => {
     }
   };
 
+  // Function to determine the maskImage based on canScrollLeft and canScrollRight
+  const getMaskImage = () => {
+    if (canScrollLeft && canScrollRight) {
+      // Fade on both sides
+      return 'linear-gradient(to right, transparent, black 5%, black 95%, transparent)';
+    } else if (canScrollLeft) {
+      // Fade on the left only
+      return 'linear-gradient(to right, transparent, black 5%, black 100%)';
+    } else if (canScrollRight) {
+      // Fade on the right only
+      return 'linear-gradient(to right, black 0%, black 95%, transparent)';
+    } else {
+      // No fade needed
+      return 'none';
+    }
+  };
+
   const buttonBaseStyles = "flex items-center justify-center bg-glassmorphism hover:bg-glassmorphism-hover text-white rounded cursor-pointer border border-white/20 backdrop-blur-md transition-colors duration-200";
   const actionButtonStyles = `${buttonBaseStyles} w-9 h-9 group`;
   const terminalButtonStyles = `${buttonBaseStyles} w-6 h-6 text-sm`;
@@ -111,7 +128,7 @@ const Toolbar = () => {
 
       {/* Left Arrow (Outside Flexbox) */}
       {canScrollLeft && (
-        <div className="z-20 bg-gradient-to-r from-[#181818] to-transparent pl-1 pr-1">
+        <div className="z-20">
           <button
             onClick={() => scroll(-1)}
             onMouseDown={() => startAutoScroll('left')}
@@ -128,14 +145,15 @@ const Toolbar = () => {
         </div>
       )}
 
-      {/* Terminals Container (Flexbox) */}
+      {/* Terminals Container */}
       <div
         ref={scrollContainerRef}
         className="flex-1 flex overflow-x-hidden items-center gap-1"
         style={{
           scrollbarWidth: 'none',
           msOverflowStyle: 'none',
-          scrollBehavior: 'smooth'
+          scrollBehavior: 'smooth',
+          maskImage: getMaskImage(),
         }}
       >
         {terminals.map((terminal) => (
@@ -181,7 +199,7 @@ const Toolbar = () => {
 
       {/* Right Arrow (Outside Flexbox) */}
       {canScrollRight && (
-        <div className="z-20 bg-gradient-to-l from-[#181818] to-transparent pl-1 pr-1">
+        <div className="z-20">
           <button
             onClick={() => scroll(1)}
             onMouseDown={() => startAutoScroll('right')}
