@@ -121,7 +121,7 @@ const Toolbar = () => {
           className={actionButtonStyles}
           aria-label="Add New Terminal"
         >
-          <SquareTerminal size={18} />
+          <SquareTerminal size={24} />
         </button>
         <div className="h-6 w-px bg-white/20 mx-2"></div>
       </div>
@@ -224,7 +224,7 @@ const Toolbar = () => {
           className={actionButtonStyles}
           aria-label="Settings"
         >
-          <Settings size={18} />
+          <Settings size={24} />
         </button>
       </div>
     </div>
