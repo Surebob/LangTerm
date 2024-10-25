@@ -65,7 +65,7 @@ export default function AuthPage() {
               <div className="text-center" style={{padding: '1.5em 3em'}}>
                 <h1 className="text-2xl font-bold mb-6 text-white">Check Your Inbox</h1>
                 <p className="text-white">
-                  We've sent a confirmation email. Please check your inbox and verify
+                  We&#39;ve sent a confirmation email. Please check your inbox and verify
                   your account to log in.
                 </p>
               </div>
@@ -122,7 +122,7 @@ export default function AuthPage() {
                     </div>
 
                     <span className="bottom_text">
-                      Don't have an account?{' '}
+                      Don&#39;t have an account?{' '}
                       <span className="switch" onClick={handleToggle}>
                         Sign Up
                       </span>
