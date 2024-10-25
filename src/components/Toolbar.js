@@ -1,8 +1,9 @@
-// Toolbar.js
 "use client";
 
 import React, { useContext, useRef, useState, useEffect } from 'react';
 import { TerminalContext } from '../context/TerminalContext';
+import { useRouter } from 'next/navigation';
+import { supabase } from '../lib/supabaseClient';
 import {
   Settings,
   SquareTerminal,
@@ -12,9 +13,13 @@ import {
   EyeOff,
   ChevronRight as ArrowRight,
   Code2,
+  LogOut,
+  User,
+  Settings as SettingsIcon,
 } from 'lucide-react';
 
 const Toolbar = () => {
+  const router = useRouter();
   const {
     addTerminal,
     terminals,
@@ -28,17 +33,32 @@ const Toolbar = () => {
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(false);
 
-  // Dropdown menu state
+  // Dropdown menu states
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [openSubmenu, setOpenSubmenu] = useState(null);
 
-  // Refs for menu and button
+  // Refs for menus and buttons
   const menuRef = useRef(null);
   const buttonRef = useRef(null);
+  const settingsMenuRef = useRef(null);
+  const settingsButtonRef = useRef(null);
 
-  // Close menu when clicking outside
+  // Handle logout
+  const handleLogout = async () => {
+    try {
+      const { error } = await supabase.auth.signOut();
+      if (error) throw error;
+      router.push('/auth/login');
+    } catch (error) {
+      console.error('Error logging out:', error.message);
+    }
+  };
+
+  // Close menus when clicking outside
   useEffect(() => {
     const handleClickOutside = (event) => {
+      // Handle terminal menu
       if (
         menuRef.current &&
         !menuRef.current.contains(event.target) &&
@@ -46,6 +66,15 @@ const Toolbar = () => {
       ) {
         setIsMenuOpen(false);
         setOpenSubmenu(null);
+      }
+
+      // Handle settings menu
+      if (
+        settingsMenuRef.current &&
+        !settingsMenuRef.current.contains(event.target) &&
+        !settingsButtonRef.current.contains(event.target)
+      ) {
+        setIsSettingsOpen(false);
       }
     };
 
@@ -173,7 +202,7 @@ const Toolbar = () => {
             ref={menuRef}
             className="dropdown-menu absolute bottom-full w-56 mb-5"
           >
-            <ul className="py-2 relative">
+            <ul className="py-2 relative bg-glassmorphism bg-opacity-70 backdrop-blur-lg border border-white/20 rounded-lg shadow-lg">
               {/* Add Terminal Item */}
               <li
                 onClick={() => {
@@ -401,17 +430,43 @@ const Toolbar = () => {
       )}
 
       {/* Right Section with Settings */}
-      <div className="flex items-center pr-2 z-30">
+      <div className="flex items-center pr-2 z-30 relative">
         <div className="h-6 w-px bg-white/20 mx-2"></div>
         <button
-          onClick={() => {
-            /* Add settings handler */
-          }}
+          ref={settingsButtonRef}
+          onClick={() => setIsSettingsOpen(!isSettingsOpen)}
           className={actionButtonStyles}
           aria-label="Settings"
         >
           <Settings size={24} />
         </button>
+
+        {/* Settings Dropdown Menu */}
+        {isSettingsOpen && (
+          <div
+            ref={settingsMenuRef}
+            className="dropdown-menu absolute bottom-full right-2 w-56 mb-5"
+          >
+            <ul className="py-2 relative bg-glassmorphism bg-opacity-70 backdrop-blur-lg border border-white/20 rounded-lg shadow-lg">
+              <li className="flex items-center px-4 py-2 hover:bg-white/10 cursor-pointer transition-colors duration-200">
+                <User size={16} className="mr-2" />
+                Profile
+              </li>
+              <li className="flex items-center px-4 py-2 hover:bg-white/10 cursor-pointer transition-colors duration-200">
+                <SettingsIcon size={16} className="mr-2" />
+                Preferences
+              </li>
+              <hr className="my-1 border-white/20" />
+              <li
+                onClick={handleLogout}
+                className="flex items-center px-4 py-2 hover:bg-white/10 cursor-pointer transition-colors duration-200 text-red-400"
+              >
+                <LogOut size={16} className="mr-2" />
+                Logout
+              </li>
+            </ul>
+          </div>
+        )}
       </div>
     </div>
   );

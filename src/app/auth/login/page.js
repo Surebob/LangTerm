@@ -5,81 +5,177 @@
 import { supabase } from '../../../lib/supabaseClient';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { FcGoogle } from 'react-icons/fc';
+import { FaGithub } from 'react-icons/fa';
 
-export default function LoginPage() {
+export default function AuthPage() {
+  const [isLogin, setIsLogin] = useState(true);
+  const [showConfirmation, setShowConfirmation] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [username, setUsername] = useState('');
+  const [error, setError] = useState(null);
   const router = useRouter();
-  const [error, setError] = useState(null); 
+
+  const handleToggle = () => {
+    setError(null);
+    setEmail('');
+    setPassword('');
+    setUsername('');
+    setIsLogin(!isLogin);
+  };
 
   const handleLogin = async (e) => {
     e.preventDefault();
-    setError(null); 
+    setError(null);
     const { error } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
     if (!error) {
-      router.push('/dashboard');  // Redirect to /dashboard
+      router.push('/dashboard');
     } else {
-      setError(error.message); 
+      setError(error.message);
     }
+    setEmail('');
+    setPassword('');
   };
 
-  const handleOAuthLogin = async (provider) => {
-    const { error } = await supabase.auth.signInWithOAuth({ provider });
-    if (error) {
+  const handleSignup = async (e) => {
+    e.preventDefault();
+    setError(null);
+    const { error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: {
+          username,
+        },
+      },
+    });
+    if (!error) {
+      setShowConfirmation(true); // Show confirmation message
+    } else {
       setError(error.message);
     }
   };
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-black">
-      <div className="glass-effect max-w-md w-full p-8 text-center">
-        <h1 className="text-2xl font-bold mb-6 text-white">Login</h1>
-        {error && <p className="text-red-500 mb-4">{error}</p>}
-        <form onSubmit={handleLogin}>
-          <input 
-            type="email" 
-            value={email} 
-            onChange={(e) => setEmail(e.target.value)} 
-            placeholder="Email" 
-            className="w-full p-3 mb-4 rounded"
-            required 
-          />
-          <input 
-            type="password" 
-            value={password} 
-            onChange={(e) => setPassword(e.target.value)} 
-            placeholder="Password" 
-            className="w-full p-3 mb-4 rounded"
-            required 
-          />
-          <button type="submit" className="w-full text-white bg-blue-500 hover:bg-blue-600 p-3 rounded">
-            Login
-          </button>
-        </form>
+    <div className="flex items-center justify-center min-h-screen bg-grid">
+          <div className="container form-window">
+            {showConfirmation ? (
+              <div className="text-center" style={{padding: '1.5em 3em'}}>
+                <h1 className="text-2xl font-bold mb-6 text-white">Check Your Inbox</h1>
+                <p className="text-white">
+                  We’ve sent a confirmation email. Please check your inbox and verify
+                  your account to log in.
+                </p>
+              </div>
+            ) : (
+              <div className={`slider ${isLogin ? '' : 'shift'}`}>
+                {isLogin ? (
+                  <form className="form" onSubmit={handleLogin}>
+                    <span className="title">Login</span>
+                    {error && <p className="text-red-500 mb-4">{error}</p>}
+                    <div className="form_control">
+                      <input
+                        type="email"
+                        className="input"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        required
+                      />
+                      <label className={`label ${email ? 'has-content' : ''}`}>Email</label>
+                    </div>
+                    <div className="form_control">
+                      <input
+                        type="password"
+                        className="input"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        required
+                      />
+                      <label className={`label ${password ? 'has-content' : ''}`}>Password</label>
+                    </div>
 
-        <hr className="my-4 text-gray-600" />
+                    <div className="w-full">
+                      <button type="submit" className="mb-3 hover:bg-white/10 cursor-pointer transition-colors duration-200">
+                        Login
+                      </button>
 
-        {/* OAuth Login */}
-        <div className="mt-4">
-          <button onClick={() => handleOAuthLogin('google')} className="w-full text-white bg-red-500 hover:bg-red-600 p-3 mb-2 rounded">
-            Sign in with Google
-          </button>
-          <button onClick={() => handleOAuthLogin('github')} className="w-full text-white bg-gray-800 hover:bg-gray-900 p-3 mb-2 rounded">
-            Sign in with GitHub
-          </button>
+                      {/* OAuth Buttons */}
+                      <div className="flex justify-between">
+                        <button
+                          onClick={() => handleOAuthLogin('google')}
+                          className="w-[48%] flex items-center justify-center gap-2 hover:bg-white/10 cursor-pointer transition-colors duration-200 p-3 rounded"
+                        >
+                          <FcGoogle size={20} />
+                        </button>
+                        <button
+                          onClick={() => handleOAuthLogin('github')}
+                          className="w-[48%] flex items-center justify-center gap-2 hover:bg-white/10 cursor-pointer transition-colors duration-200 p-3 rounded"
+                        >
+                          <FaGithub size={20} />
+                        </button>
+                      </div>
+                    </div>
+
+                    <span className="bottom_text">
+                      Don’t have an account?{' '}
+                      <span className="switch" onClick={handleToggle}>
+                        Sign Up
+                      </span>
+                    </span>
+                  </form>
+                ) : (
+                  <form className="form" onSubmit={handleSignup}>
+                    <span className="title">Sign Up</span>
+                    {error && <p className="text-red-500 mb-4">{error}</p>}
+                    <div className="form_control">
+                      <input
+                        type="text"
+                        className="input"
+                        value={username}
+                        onChange={(e) => setUsername(e.target.value)}
+                        required
+                      />
+                      <label className={`label ${username ? 'has-content' : ''}`}>Username</label>
+                    </div>
+                    <div className="form_control">
+                      <input
+                        type="email"
+                        className="input"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        required
+                      />
+                      <label className={`label ${email ? 'has-content' : ''}`}>Email</label>
+                    </div>
+                    <div className="form_control">
+                      <input
+                        type="password"
+                        className="input"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        required
+                      />
+                      <label className={`label ${password ? 'has-content' : ''}`}>Password</label>
+                    </div>
+                    <button type="submit" className="hover:bg-white/10 cursor-pointer transition-colors duration-200 p-3 rounded">
+                      Sign Up
+                    </button>
+                    <span className="bottom_text">
+                      Already have an account?{' '}
+                      <span className="switch" onClick={handleToggle}>
+                        Sign In
+                      </span>
+                    </span>
+                  </form>
+                )}
+              </div>
+            )}
+          </div>
         </div>
 
-        {/* Links */}
-        <div className="form-link">
-          <a href="/auth/signup">Don’t have an account? Sign up here.</a>
-        </div>
-        <div className="form-link">
-          <a href="/auth/forgot-password">Forgot Password?</a>
-        </div>
-      </div>
-    </div>
   );
 }

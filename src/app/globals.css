@@ -7,6 +7,117 @@
 /* Import the 'Ubuntu Mono' font from Google Fonts */
 @import url('https://fonts.googleapis.com/css2?family=Ubuntu+Mono:wght@400;700&display=swap');
 
+
+/* Login / Signup Page */
+.container {
+  width: 400px;
+  position: relative;
+  border-radius: 5px;
+  overflow: hidden;
+  color: white;
+  box-shadow: 1.5px 1.5px 3px #0e0e0e, -1.5px -1.5px 3px rgb(95 94 94 / 25%), inset 0px 0px 0px #0e0e0e, inset 0px -0px 0px #5f5e5e;
+}
+
+.bg-grid {
+  background-image: linear-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+  background-size: 18px 18px;
+  background-position: 170.2px 94.5px;
+  cursor: grab;
+  z-index: 0;
+}
+
+.container .slider {
+  width: 200%;
+  position: relative;
+  transition: transform ease-out 0.3s;
+  display: flex;
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 30px;
+  padding: 1.5em 3em;
+  width: 50%;
+}
+
+.title {
+  text-align: center;
+  font-weight: 700;
+  font-size: 2em;
+}
+
+.form_control {
+  width: 100%;
+  position: relative;
+  overflow: hidden;
+}
+
+.form_control .label {
+  position: absolute;
+  top: 50%;
+  left: 10px;
+  transition: transform ease 0.2s;
+  transform: translate(0%, -50%);
+  font-size: 1em;
+  user-select: none;
+  pointer-events: none;
+  color: #b0b0b0;
+}
+
+.form_control .input {
+  width: 100%;
+  background-color: transparent;
+  border: none;
+  outline: none;
+  color: #fff;
+  padding: 0.5rem;
+  font-size: 0.9rem;
+  border-radius: 5px;
+  transition: box-shadow ease 0.2s;
+  box-shadow: 0px 0px 0px #0e0e0e, 0px 0px 0px rgb(95 94 94 / 25%), inset 1.5px 1.5px 3px #0e0e0e, inset -1.5px -1.5px 3px #5f5e5e;
+}
+
+.form_control .input:focus,
+.form_control .input:valid {
+  box-shadow: 0px 0px 0px #0e0e0e, 0px 0px 0px rgb(95 94 94 / 25%), inset 3px 3px 4px #0e0e0e, inset -3px -3px 4px #5f5e5e;
+}
+
+/* Shift label when input has focus, is valid, or contains content */
+.form_control .input:focus + .label,
+.form_control .input:valid + .label,
+.form_control .label.has-content {
+  transform: translate(-150%, -50%);
+}
+
+form button {
+  width: 100%;
+  background-color: transparent;
+  border: none;
+  outline: none;
+  color: #fff;
+  padding: 0.5rem;
+  font-size: 0.9rem;
+  border-radius: 5px;
+  transition: box-shadow ease 0.1s;
+  box-shadow: 1.5px 1.5px 3px #0e0e0e, -1.5px -1.5px 3px rgb(95 94 94 / 25%), inset 0px 0px 0px #0e0e0e, inset 0px -0px 0px #5f5e5e;
+}
+
+form button:active {
+  box-shadow: 0px 0px 0px #0e0e0e, 0px 0px 0px rgb(95 94 94 / 25%), inset 3px 3px 4px #0e0e0e, inset -3px -3px 4px #5f5e5e;
+}
+
+.bottom_text {
+  font-size: 0.75em;
+}
+
+.bottom_text .switch {
+  font-weight: 700;
+  cursor: pointer;
+}
+
 /* Apply "Ubuntu Mono" font across all terminal-related elements */
 .terminal-window,
 .terminal-window * {
@@ -72,7 +183,16 @@ body {
   backdrop-filter: var(--backdrop-blur); /* Apply blur to terminal */
   border: 1px solid var(--border-color); /* Light border */
   border-radius: 12px; /* Rounded corners for modern look */
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1); /* Soft shadow */
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.5); /* Soft shadow */
+}
+
+.form-window {
+  cursor: text; /* Change the cursor to text selection inside the terminal */
+  background-color: var(--terminal-bg); /* Transparent glass effect */
+  backdrop-filter: var(--backdrop-blur); /* Apply blur to terminal */
+  border: 1px solid var(--border-color); /* Light border */
+  border-radius: 12px; /* Rounded corners for modern look */
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.5); /* Soft shadow */
 }
 
 .terminal-header {
