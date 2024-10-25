@@ -1,5 +1,3 @@
-// src/app/auth/login/page.js
-
 "use client";
 
 import { supabase } from '../../../lib/supabaseClient';
@@ -67,7 +65,7 @@ export default function AuthPage() {
               <div className="text-center" style={{padding: '1.5em 3em'}}>
                 <h1 className="text-2xl font-bold mb-6 text-white">Check Your Inbox</h1>
                 <p className="text-white">
-                  We’ve sent a confirmation email. Please check your inbox and verify
+                  We've sent a confirmation email. Please check your inbox and verify
                   your account to log in.
                 </p>
               </div>
@@ -75,7 +73,10 @@ export default function AuthPage() {
               <div className={`slider ${isLogin ? '' : 'shift'}`}>
                 {isLogin ? (
                   <form className="form" onSubmit={handleLogin}>
-                    <span className="title">Login</span>
+                    <span className="title title-wrapper">
+                      Login
+                      <span className="login-caret" />
+                    </span>
                     {error && <p className="text-red-500 mb-4">{error}</p>}
                     <div className="form_control">
                       <input
@@ -109,7 +110,7 @@ export default function AuthPage() {
                           onClick={() => handleOAuthLogin('google')}
                           className="w-[48%] flex items-center justify-center gap-2 hover:bg-white/10 cursor-pointer transition-colors duration-200 p-3 rounded"
                         >
-                          <FcGoogle size={20} />
+                          <FcGoogle size={25} />
                         </button>
                         <button
                           onClick={() => handleOAuthLogin('github')}
@@ -121,7 +122,7 @@ export default function AuthPage() {
                     </div>
 
                     <span className="bottom_text">
-                      Don’t have an account?{' '}
+                      Don't have an account?{' '}
                       <span className="switch" onClick={handleToggle}>
                         Sign Up
                       </span>
@@ -129,7 +130,10 @@ export default function AuthPage() {
                   </form>
                 ) : (
                   <form className="form" onSubmit={handleSignup}>
-                    <span className="title">Sign Up</span>
+                    <span className="title title-wrapper">
+                      Sign Up
+                      <span className="login-caret" />
+                    </span>
                     {error && <p className="text-red-500 mb-4">{error}</p>}
                     <div className="form_control">
                       <input
@@ -176,6 +180,5 @@ export default function AuthPage() {
             )}
           </div>
         </div>
-
   );
 }

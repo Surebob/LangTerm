@@ -323,3 +323,25 @@ body {
   -ms-overflow-style: none;  /* IE and Edge */
   scrollbar-width: none;  /* Firefox */
 }
+
+.title-wrapper {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.login-caret {
+  display: inline-block;
+  width: 21px;
+  height: 10px;
+  background-color: #59da79;
+  animation: blink 1.2s infinite;
+  margin-left: 2px;
+  margin-top: 12px;
+}
+
+@keyframes blink {
+  0%, 100% { opacity: 0; }
+  50% { opacity: 1; }
+}
