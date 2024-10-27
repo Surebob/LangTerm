@@ -37,7 +37,6 @@ const GridBackground = () => {
   };
 
   const handleWheel = (e) => {
-    e.preventDefault();
 
     const zoomFactor = e.deltaY > 0 ? 0.9 : 1.1;
     const newZoomLevel = Math.min(3, Math.max(0.5, zoomLevel * zoomFactor));

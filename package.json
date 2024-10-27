@@ -6,11 +6,15 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
+    "backend": "node backend/server.js",
     "lint": "next lint"
   },
   "dependencies": {
     "@heroicons/react": "^1.0.6",
     "@supabase/supabase-js": "^2.45.6",
+    "ansi-to-html": "^0.7.2",
+    "cors": "^2.8.5",
+    "express": "^4.18.2",
     "framer-motion": "^11.11.9",
     "gsap": "^3.12.5",
     "lucide-react": "^0.453.0",
@@ -19,7 +23,9 @@
     "react-dom": "^18",
     "react-draggable": "^4.4.6",
     "react-icons": "^5.3.0",
-    "react-resizable": "^3.0.5"
+    "react-resizable": "^3.0.5",
+    "ssh2": "^1.16.0",
+    "ws": "^8.18.0"
   },
   "devDependencies": {
     "autoprefixer": "^10.4.20",

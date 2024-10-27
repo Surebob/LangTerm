@@ -1,7 +1,7 @@
 // TerminalWindow.js
 "use client";
 
-import React, { useContext, useState, useRef } from "react";
+import React, { useContext, useState, useRef, useEffect } from "react";
 import { ResizableBox } from "react-resizable";
 import { TerminalContext } from "../context/TerminalContext";
 import "react-resizable/css/styles.css";
@@ -9,6 +9,7 @@ import "react-resizable/css/styles.css";
 const TerminalWindow = () => {
   const {
     terminals,
+    setTerminals,  // Add this
     gridPosition,
     zoomLevel,
     toggleMinimizeTerminal,
@@ -18,7 +19,15 @@ const TerminalWindow = () => {
     addCommandToTerminal,
     updateTerminalName,
     bringToFront,
-    user, // Added user from context
+    user,
+    connectSSH,
+    disconnectSSH,
+    handleSSHCommand,
+    sshConnections,
+    isPasswordMode,
+    passwordInput,         // Add this
+    setPasswordInput,      // Add this
+    setIsPasswordMode,     // Add this
   } = useContext(TerminalContext);
 
   // ASCII Art to be displayed
@@ -27,7 +36,7 @@ const TerminalWindow = () => {
     ██╗      █████╗ ███╗   ██╗ ██████╗████████╗███████╗██████╗ ███╗   ███╗
     ██║     ██╔══██╗████╗  ██║██╔════╝╚══██╔══╝██╔════╝██╔══██╗████╗ ████║
     ██║     ███████║██╔██╗ ██║██║  ███╗  ██║   █████╗  ██████╔╝██╔████╔██║
-    ██║     ██╔══██║██║╚██╗██║██║   ██║  ██║   ██╔══╝  ██╔══██╗██║╚██╔╝██║
+    ██║     ██╔══██║██║██╗ ██║██║   ██║  ██║   ██╔══╝  ██╔══██╗██║╚██╔╝██║
     ███████╗██║  ██║██║ ╚████║╚██████╔╝  ██║   ███████╗██║  ██║██║ ╚═╝ ██║
     ╚══════╝╚═╝  ╚═╝╚═╝  ╚═══╝ ╚═════╝   ╚═╝   ╚══════╝╚═╝  ╚═╝╚═╝     ╚═╝
  `;
@@ -39,6 +48,7 @@ const TerminalWindow = () => {
   const dragRefs = useRef({});
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+  const terminalBodyRefs = useRef({});
 
   // Format username function
   const formatUsername = (user) => {
@@ -69,19 +79,30 @@ const TerminalWindow = () => {
     }));
   };
 
-  const handleCommandSubmit = (id) => {
-    const currentInput = getCurrentInput(id);
-    const output = executeCommand(currentInput);
-    addCommandToTerminal(id, currentInput, output);
-    setCurrentInput(id, "");
-  };
-
-  const executeCommand = (command) => {
-    const [cmd] = command.split(" ");
+  const executeCommand = async (command, terminal) => {
+    const [cmd, ...args] = command.trim().split(/\s+/);
+    
     switch (cmd.toLowerCase()) {
+      case "ssh":
+        const sshResult = await connectSSH(terminal.id, command);
+        return sshResult.message || sshResult.error;
+        
+      case "exit":
+        if (sshConnections[terminal.id]) {
+          await disconnectSSH(terminal.id);
+          return "SSH connection closed.";
+        }
+        return "No active SSH connection to close.";
+        
       case "echo":
-        return "Hello, LangTerm!";
+        return args.join(" ") || "Hello, LangTerm!";
+        
       default:
+        // If we have an SSH connection, send command to remote server
+        if (sshConnections[terminal.id]) {
+          const result = await handleSSHCommand(terminal.id, command);
+          return result.success ? result.output : result.error;
+        }
         return `Command "${cmd}" not found.`;
     }
   };
@@ -198,6 +219,86 @@ const TerminalWindow = () => {
     };
   }, [isDragging, dragStart, gridPosition, zoomLevel, terminals, updateTerminalPosition]);
 
+  const handleCommandSubmit = async (id) => {
+    const currentInput = getCurrentInput(id);
+    const terminal = terminals.find(t => t.id === id);
+    if (!terminal) return;
+    
+    if (isPasswordMode[id]) {
+      // Handle password input
+      const command = passwordInput[id];
+      setIsPasswordMode(prev => ({ ...prev, [id]: false }));
+      
+      // Clear password prompt and show connecting message
+      setTerminals(prevTerminals =>
+        prevTerminals.map(t => {
+          if (t.id === id) {
+            return {
+              ...t,
+              commands: t.commands.filter(cmd => cmd.output !== "Enter password:").concat({
+                command: "",
+                output: "Connecting...",
+                isHtml: false
+              })
+            };
+          }
+          return t;
+        })
+      );
+      
+      const result = await connectSSH(id, command, currentInput);
+      
+      // On successful connection, keep ASCII art but clear "Connecting..."
+      if (result.success) {
+        console.log('SSH Connection successful, adding to terminal:', {
+          message: result.message,
+          output: result.output
+        });
+        setTerminals(prevTerminals =>
+          prevTerminals.map(t => {
+            if (t.id === id) {
+              return {
+                ...t,
+                // Clear all previous messages except ASCII art
+                commands: [{
+                  command: "",
+                  output: result.message + '\n' + result.output,
+                  isHtml: true
+                }]
+              };
+            }
+            return t;
+          })
+        );
+        
+        // Add the initial SSH output after a short delay to ensure proper order
+        setTimeout(() => {
+          if (result.initialOutput) {
+            addCommandToTerminal(id, "", result.initialOutput, true);
+          }
+        }, 100);
+      } else {
+        // If connection failed, show the error
+        addCommandToTerminal(id, "", result.error || "Failed to connect", true);
+      }
+    } else if (sshConnections[id]) {
+      // Handle SSH command
+      const result = await handleSSHCommand(id, currentInput);
+      addCommandToTerminal(id, "", result.output, true);
+    }
+    setCurrentInput(id, "");
+  };
+
+  // Add this effect to handle scrolling
+  useEffect(() => {
+    terminals.forEach(terminal => {
+      const bodyElement = terminalBodyRefs.current[terminal.id];
+      if (bodyElement) {
+        bodyElement.scrollTop = bodyElement.scrollHeight;
+      }
+    });
+  }, [terminals]); // This will run whenever terminals state changes
+
   return (
     <>
       {terminals.map((terminal) => (
@@ -285,10 +386,14 @@ const TerminalWindow = () => {
 
               {/* Terminal Body */}
               <div
-                className="flex-1 bg-transparent p-2 text-green-400 overflow-auto whitespace-pre-wrap"
-                style={{ fontSize: `${16 * zoomLevel}px` }}
+                ref={el => terminalBodyRefs.current[terminal.id] = el}
+                className="flex-1 bg-transparent p-2 text-green-400 overflow-auto whitespace-pre-wrap font-mono"
+                style={{ 
+                  fontSize: `${16 * zoomLevel}px`,
+                  maxHeight: `calc(100% - ${40 * zoomLevel}px)`
+                }}
               >
-                {/* Render ASCII Art */}
+                {/* Show ASCII art */}
                 <pre
                   className="text-green-400"
                   style={{
@@ -304,45 +409,57 @@ const TerminalWindow = () => {
                   {asciiArt}
                 </pre>
 
+                {/* Command outputs */}
                 {terminal.commands.map((cmd, index) => (
-                  <div key={index} style={{ whiteSpace: "pre-wrap" }}>
-                    <div>{`${promptText}${cmd.command}`}</div>
-                    <div className="pl-4 text-yellow-300">{cmd.output}</div>
+                  <div key={index}>
+                    <div 
+                      className="text-yellow-300"
+                      dangerouslySetInnerHTML={{ 
+                        __html: cmd.isHtml ? cmd.output : `<span>${cmd.output}</span>`
+                      }}
+                    />
                   </div>
                 ))}
 
-                {/* Command Input with Word Wrap */}
-                <div className="flex relative">
-                  <span className="text-green-400">{promptText}</span>
-                  <form
-                    className="flex-grow ml-2"
-                    onSubmit={(e) => {
-                      e.preventDefault();
-                      handleCommandSubmit(terminal.id);
-                    }}
-                  >
-                    <textarea
-                      name="command"
-                      value={getCurrentInput(terminal.id)}
-                      onChange={(e) => handleInputChange(e, terminal.id)}
-                      onKeyDown={(e) => handleKeyDown(e, terminal.id)}
-                      className="w-full bg-transparent text-green-400 outline-none resize-none"
-                      autoFocus
-                      autoComplete="off"
-                      ref={(el) => (inputRefs.current[terminal.id] = el)}
-                      spellCheck={false}
-                      autoCorrect="off"
-                      rows={1}
-                      style={{
-                        fontSize: `${16 * zoomLevel}px`,
-                        lineHeight: '1.5',
-                        caretColor: "green",
-                        overflow: 'hidden',
-                        whiteSpace: 'pre-wrap',
+                {/* Command Input Section */}
+                {(isPasswordMode[terminal.id] || sshConnections[terminal.id]) && (
+                  <div className="flex relative">
+                    {isPasswordMode[terminal.id] && (
+                      <span className="text-green-400">Password: </span>
+                    )}
+                    <form
+                      className="flex-grow"
+                      onSubmit={(e) => {
+                        e.preventDefault();
+                        handleCommandSubmit(terminal.id);
                       }}
-                    />
-                  </form>
-                </div>
+                    >
+                      <textarea
+                        name="command"
+                        value={getCurrentInput(terminal.id)}
+                        onChange={(e) => handleInputChange(e, terminal.id)}
+                        onKeyDown={(e) => handleKeyDown(e, terminal.id)}
+                        className="w-full bg-transparent outline-none resize-none font-mono"
+                        autoFocus
+                        autoComplete="off"
+                        ref={(el) => (inputRefs.current[terminal.id] = el)}
+                        spellCheck={false}
+                        autoCorrect="off"
+                        rows={1}
+                        style={{
+                          fontSize: `${16 * zoomLevel}px`,
+                          lineHeight: '1.5',
+                          caretColor: "green",
+                          overflow: 'hidden',
+                          whiteSpace: 'pre-wrap',
+                          marginLeft: '8px',
+                          color: isPasswordMode[terminal.id] ? 'transparent' : '#68D391',
+                          textShadow: isPasswordMode[terminal.id] ? '0 0 8px rgba(0,255,0,0.5)' : 'none',
+                        }}
+                      />
+                    </form>
+                  </div>
+                )}
               </div>
             </div>
           </ResizableBox>

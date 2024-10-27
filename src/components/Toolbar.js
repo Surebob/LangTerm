@@ -21,11 +21,15 @@ import {
 const Toolbar = () => {
   const router = useRouter();
   const {
-    addTerminal,
     terminals,
     toggleMinimizeTerminal,
     closeTerminal,
     centerOnTerminal,
+    connectSSH,
+    addCommandToTerminal,
+    addTerminal,
+    setPasswordInput,
+    setIsPasswordMode,
   } = useContext(TerminalContext);
 
   const scrollContainerRef = useRef(null);
@@ -203,20 +207,7 @@ const Toolbar = () => {
             className="dropdown-menu absolute bottom-full w-56 mb-5"
           >
             <ul className="py-2 relative bg-glassmorphism bg-opacity-70 backdrop-blur-lg border border-white/20 rounded-lg shadow-lg">
-              {/* Add Terminal Item */}
-              <li
-                onClick={() => {
-                  addTerminal();
-                  setIsMenuOpen(false);
-                }}
-                className="flex items-center px-4 py-2 hover:bg-white/10 cursor-pointer transition-colors duration-200"
-              >
-                <Code2 size={16} className="mr-2" />
-                Add Terminal
-              </li>
-              {/* Separator */}
-              <hr className="my-1 border-white/20" />
-              {/* Submenu Item */}
+              {/* SSH Connections */}
               <li className="relative">
                 <div
                   onClick={() =>
@@ -228,103 +219,36 @@ const Toolbar = () => {
                   SSH Connections
                   <ArrowRight size={16} className="ml-auto" />
                 </div>
-                {/* Submenu */}
+                {/* SSH Connections Submenu */}
                 {openSubmenu === 'submenu1' && (
-                  <ul className="dropdown-menu absolute bottom-0 left-full w-56 transform translate-x-2" style={{ transform: 'translate(4px, 9px)' }}>
-                  <li
-                      onClick={() => {
-                        /* Placeholder action */
+                  <ul className="dropdown-menu absolute bottom-0 left-full w-56 transform translate-x-2" 
+                      style={{ transform: 'translate(4px, 9px)' }}>
+                    <li
+                      onClick={async () => {
+                        const terminalId = addTerminal();
+                        // Don't show the command in the terminal yet
+                        addCommandToTerminal(
+                          terminalId,
+                          "",  // Empty command
+                          "Enter password:",
+                          false
+                        );
+                        // Store the SSH command and set password mode
+                        setPasswordInput(prev => ({
+                          ...prev,
+                          [terminalId]: "ssh root@67.207.88.232"
+                        }));
+                        setIsPasswordMode(prev => ({
+                          ...prev,
+                          [terminalId]: true
+                        }));
                         setIsMenuOpen(false);
                         setOpenSubmenu(null);
                       }}
                       className="flex items-center px-4 py-2 hover:bg-white/10 cursor-pointer transition-colors duration-200"
                     >
                       <Code2 size={16} className="mr-2" />
-                      104.53.45.133:20
-                    </li>
-                    {/* Sub-submenu Item */}
-                    <li className="relative">
-                      <div
-                        onClick={() =>
-                          setOpenSubmenu((prev) =>
-                            prev === 'submenu1-1' ? null : 'submenu1-1'
-                          )
-                        }
-                        className="flex items-center px-4 py-2 hover:bg-white/10 cursor-pointer transition-colors duration-200"
-                      >
-                        <Code2 size={16} className="mr-2" />
-                        192.168.0.32:20
-                      </div>
-                    </li>
-                    {/* Sub-submenu Item */}
-                    <li className="relative">
-                      <div
-                        onClick={() =>
-                          setOpenSubmenu((prev) =>
-                            prev === 'submenu1-1' ? null : 'submenu1-1'
-                          )
-                        }
-                        className="flex items-center px-4 py-2 hover:bg-white/10 cursor-pointer transition-colors duration-200"
-                      >
-                        <Code2 size={16} className="mr-2" />
-                        138.110.18.144:20
-                      </div>
-                    </li>
-                    {/* Sub-submenu Item */}
-                    <li className="relative">
-                      <div
-                        onClick={() =>
-                          setOpenSubmenu((prev) =>
-                            prev === 'submenu1-1' ? null : 'submenu1-1'
-                          )
-                        }
-                        className="flex items-center px-4 py-2 hover:bg-white/10 cursor-pointer transition-colors duration-200"
-                      >
-                        <Code2 size={16} className="mr-2" />
-                        166.87.70.131:20
-                      </div>
-                    </li>
-                    {/* Sub-submenu Item */}
-                    <li className="relative">
-                      <div
-                        onClick={() =>
-                          setOpenSubmenu((prev) =>
-                            prev === 'submenu1-1' ? null : 'submenu1-1'
-                          )
-                        }
-                        className="flex items-center px-4 py-2 hover:bg-white/10 cursor-pointer transition-colors duration-200"
-                      >
-                        <Code2 size={16} className="mr-2" />
-                        221.212.15.83:20
-                      </div>
-                    </li>
-                    {/* Sub-submenu Item */}
-                    <li className="relative">
-                      <div
-                        onClick={() =>
-                          setOpenSubmenu((prev) =>
-                            prev === 'submenu1-1' ? null : 'submenu1-1'
-                          )
-                        }
-                        className="flex items-center px-4 py-2 hover:bg-white/10 cursor-pointer transition-colors duration-200"
-                      >
-                        <Code2 size={16} className="mr-2" />
-                        163.171.16.177:20
-                      </div>
-                    </li>
-                    {/* Sub-submenu Item */}
-                    <li className="relative">
-                      <div
-                        onClick={() =>
-                          setOpenSubmenu((prev) =>
-                            prev === 'submenu1-1' ? null : 'submenu1-1'
-                          )
-                        }
-                        className="flex items-center px-4 py-2 hover:bg-white/10 cursor-pointer transition-colors duration-200"
-                      >
-                        <Code2 size={16} className="mr-2" />
-                        247.25.44.24:20
-                      </div>
+                      root@67.207.88.232
                     </li>
                   </ul>
                 )}

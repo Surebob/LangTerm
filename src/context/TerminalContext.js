@@ -2,6 +2,7 @@
 
 import React, { createContext, useState, useEffect } from 'react';
 import { supabase } from '../lib/supabaseClient';
+import { sshService } from '../services/SSHService';
 
 const updateGridPosition = (newPosition) => {
   setGridPosition(newPosition);
@@ -16,7 +17,9 @@ export const TerminalProvider = ({ children }) => {
   const [highestZIndex, setHighestZIndex] = useState(1);
   const [user, setUser] = useState(null);
   const [session, setSession] = useState(null);
-
+  const [sshConnections, setSSHConnections] = useState({});
+  const [passwordInput, setPasswordInput] = useState({});
+  const [isPasswordMode, setIsPasswordMode] = useState({});
 
   const centerOnTerminal = (terminalId) => {
     const terminal = terminals.find(t => t.id === terminalId);
@@ -70,8 +73,9 @@ export const TerminalProvider = ({ children }) => {
 
   const addTerminal = () => {
     const offset = 30;
+    const id = Date.now();
     const newTerminal = {
-      id: Date.now(),
+      id,
       name: `Terminal ${terminals.length + 1}`,
       isMinimized: false,
       position: { 
@@ -89,6 +93,7 @@ export const TerminalProvider = ({ children }) => {
     };
     setTerminals([...terminals, newTerminal]);
     setHighestZIndex((prev) => prev + 1);
+    return id; // Return the new terminal's ID
   };
 
   const bringToFront = (id) => {
@@ -155,11 +160,11 @@ export const TerminalProvider = ({ children }) => {
     );
   };
 
-  const addCommandToTerminal = (id, command, output) => {
+  const addCommandToTerminal = (id, command, output, isHtml = false) => {
     setTerminals((prevTerminals) =>
       prevTerminals.map((terminal) =>
         terminal.id === id
-          ? { ...terminal, commands: [...terminal.commands, { command, output }] }
+          ? { ...terminal, commands: [...terminal.commands, { command, output, isHtml }] }
           : terminal
       )
     );
@@ -194,10 +199,72 @@ export const TerminalProvider = ({ children }) => {
     setGridPosition(newPosition);
   };
 
+  const handleSSHCommand = async (terminalId, command) => {
+    const connection = sshConnections[terminalId];
+    
+    if (!connection) {
+      return {
+        success: false,
+        output: 'No active SSH connection. Use "ssh user@host" to connect.'
+      };
+    }
+
+    const result = await sshService.executeCommand(connection.connectionId, command);
+    return result;
+  };
+
+  const connectSSH = async (terminalId, storedCommand, password) => {
+    const match = storedCommand.match(/ssh\s+(\w+)@([\w.-]+)(?:\s+-p\s+(\d+))?/);
+    if (!match) {
+      return {
+        success: false,
+        output: 'Invalid SSH command. Use format: ssh user@host [-p port]'
+      };
+    }
+
+    const [, username, host, port] = match;
+
+    // Use connectSSH instead of executeCommand
+    const result = await sshService.connectSSH(host, username, password, port || 22);
+    
+    if (result.success) {
+      setSSHConnections(prev => ({
+        ...prev,
+        [terminalId]: {
+          connectionId: result.connectionId,
+          host,
+          username
+        }
+      }));
+
+      return {
+        success: true,
+        message: `Connected to ${host} as ${username}`,
+        initialOutput: result.output
+      };
+    }
+
+    return result;
+  };
+
+  const disconnectSSH = async (terminalId) => {
+    const connection = sshConnections[terminalId];
+    if (!connection) return;
+
+    await sshService.disconnect(connection.connectionId);
+    
+    setSSHConnections(prev => {
+      const newConnections = { ...prev };
+      delete newConnections[terminalId];
+      return newConnections;
+    });
+  };
+
   return (
     <TerminalContext.Provider
       value={{
         terminals,
+        setTerminals,
         gridPosition,
         zoomLevel,
         centerOnTerminal,
@@ -214,6 +281,14 @@ export const TerminalProvider = ({ children }) => {
         bringToFront,
         user,
         session,
+        sshConnections,
+        handleSSHCommand,
+        connectSSH,
+        disconnectSSH,
+        passwordInput,
+        setPasswordInput,
+        isPasswordMode,
+        setIsPasswordMode,
       }}
     >
       {children}

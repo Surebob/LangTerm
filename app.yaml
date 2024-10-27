@@ -1,0 +1,21 @@
+services:
+- name: frontend
+  github:
+    repo: your-repo-name
+    branch: main
+    deploy_on_push: true
+  build_command: npm run build
+  run_command: npm start
+  envs:
+    - key: NEXT_PUBLIC_BACKEND_URL
+      value: ${_self.BACKEND_URL}
+
+- name: backend
+  github:
+    repo: your-repo-name
+    branch: main
+    deploy_on_push: true
+  run_command: npm run backend
+  envs:
+    - key: PORT
+      value: "3001"
