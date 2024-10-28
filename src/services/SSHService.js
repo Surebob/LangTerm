@@ -5,19 +5,15 @@ class SSHService {
     this.ws = null;
     this.messageHandlers = new Map();
     this.isConnected = false;
-    
-    // Don't initialize connection in constructor
-    // We'll do it when needed
   }
 
-  // Initialize connection only when needed (client-side)
   initialize() {
-    if (typeof window === 'undefined') return; // Guard against SSR
-    if (this.ws) return; // Guard against multiple initializations
+    if (typeof window === 'undefined') return;
+    if (this.ws) return;
 
     const isProd = window.location.hostname === 'langterm.ai';
     this.baseUrl = isProd
-      ? `wss://${window.location.hostname}/ws`  // Use path-based routing instead of port
+      ? `wss://${window.location.hostname}/ws`
       : 'ws://localhost:3001';
 
     this.connect();
@@ -218,3 +214,15 @@ class SSHService {
 }
 
 export const sshService = new SSHService();
+
+// Initialize WebSocket when the service is imported
+if (typeof window !== 'undefined') {
+  // Wait for the DOM to be ready
+  if (document.readyState === 'complete') {
+    sshService.initialize();
+  } else {
+    window.addEventListener('load', () => {
+      sshService.initialize();
+    });
+  }
+}
