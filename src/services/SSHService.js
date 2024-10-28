@@ -4,18 +4,24 @@ class SSHService {
     this.connections = new Map();
     this.ws = null;
     this.messageHandlers = new Map();
-    // Handle different environments
-    this.baseUrl = process.env.NODE_ENV === 'production' 
-      ? 'wss://langterm.ai'  // Production WebSocket URL with secure protocol
-      : 'ws://localhost:3001'; // Development WebSocket URL
-    this.isConnected = false;
-    this.connect();
+    
+    // Only try to connect if we're in the browser
+    if (typeof window !== 'undefined') {
+      this.baseUrl = process.env.NODE_ENV === 'production' 
+        ? `wss://${window.location.hostname}` // Use the current domain with secure WebSocket
+        : 'ws://localhost:3001';
+      this.isConnected = false;
+      this.connect();
+    }
   }
 
   connect() {
     try {
+      // Don't attempt connection during build/SSR
+      if (typeof window === 'undefined') return;
+
       console.log('Attempting WebSocket connection to:', this.baseUrl);
-      this.ws = new WebSocket(this.baseUrl.replace('http', 'ws'));
+      this.ws = new WebSocket(this.baseUrl);
       
       this.ws.onopen = () => {
         console.log('WebSocket connected successfully');

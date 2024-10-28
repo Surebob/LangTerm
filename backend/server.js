@@ -7,7 +7,10 @@ const Convert = require('ansi-to-html');
 
 const app = express();
 const server = http.createServer(app);
-const wss = new WebSocket.Server({ server });
+const wss = new WebSocket.Server({ 
+  port: process.env.NODE_ENV === 'production' ? 443 : 3001,
+  // Add any necessary SSL configuration for production
+});
 
 const port = process.env.PORT || 3001;
 
