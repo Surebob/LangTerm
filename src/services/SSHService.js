@@ -30,32 +30,16 @@ class SSHService {
       this.ws.onopen = () => {
         console.log('WebSocket connected successfully');
         this.isConnected = true;
-
-        // Set up ping interval
-        this.pingInterval = setInterval(() => {
-          if (this.ws.readyState === WebSocket.OPEN) {
-            this.ws.send(JSON.stringify({ type: 'PING' }));
-          }
-        }, 30000);
       };
       
-      this.ws.onmessage = (event) => {
-        const data = JSON.parse(event.data);
-        console.log('WebSocket received:', data);
-        
-        const handler = this.messageHandlers.get(data.connectionId) || this.messageHandlers.get('temp');
-        if (handler) {
-          handler(data);
-        }
-      };
-
       this.ws.onclose = () => {
         console.log('WebSocket disconnected, attempting reconnect...');
         this.isConnected = false;
         if (this.pingInterval) {
           clearInterval(this.pingInterval);
         }
-        setTimeout(() => this.connect(), 1000);
+        // Add delay before reconnect
+        setTimeout(() => this.connect(), 2000);
       };
 
       this.ws.onerror = (error) => {
@@ -70,88 +54,70 @@ class SSHService {
           }
         });
       };
+      
+      this.ws.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+        console.log('WebSocket received:', data);
+        
+        const handler = this.messageHandlers.get(data.connectionId) || this.messageHandlers.get('temp');
+        if (handler) {
+          handler(data);
+        }
+      };
+
     } catch (error) {
-      console.error('Failed to create WebSocket:', {
-        message: error.message,
-        stack: error.stack
-      });
+      console.error('Failed to create WebSocket:', error);
     }
   }
 
   async connectSSH(host, username, password, port = 22) {
-    this.initialize(); // Initialize connection if needed
-    if (!this.isConnected) {
-      return {
-        success: false,
-        error: 'WebSocket not connected. Please try again.'
-      };
+    if (!this.isConnected || !this.ws) {
+      console.log('WebSocket not connected, attempting to reconnect...');
+      await new Promise((resolve) => {
+        this.initialize();
+        const checkConnection = setInterval(() => {
+          if (this.isConnected) {
+            clearInterval(checkConnection);
+            resolve();
+          }
+        }, 100);
+      });
     }
 
-    return new Promise((resolve) => {
-      let welcomeMessage = '';
-      let connectionId = null;
-      let connectedMessage = '';
-      let hasResolved = false;
+    return new Promise((resolve, reject) => {
+      try {
+        console.log('Sending SSH connection request...');
+        this.ws.send(JSON.stringify({
+          type: 'CONNECT',
+          host,
+          username,
+          password,
+          port
+        }));
 
-      const messageHandler = (data) => {
-        console.log('SSH Connection Handler received:', data);
-
-        // Store the connectionId when we get it
-        if (data.type === 'CONNECTED') {
-          console.log('Received CONNECTED message');
-          connectedMessage = data.message;
-          connectionId = data.connectionId;
-
-          // Reassign the handler to use connectionId as key
-          this.messageHandlers.set(connectionId, messageHandler);
-          this.messageHandlers.delete('temp');
-        }
-
-        if (data.type === 'OUTPUT' && data.connectionId === connectionId) {
-          console.log('Received OUTPUT message');
-          welcomeMessage += data.output;
-        }
-
-        // Check if we have both messages and haven't resolved yet
-        if (connectedMessage && welcomeMessage && !hasResolved) {
-          console.log('Both messages received, resolving');
-          hasResolved = true;
-          this.messageHandlers.delete(connectionId);
-          resolve({
-            success: true,
-            connectionId: connectionId,
-            message: connectedMessage,
-            output: welcomeMessage
-          });
-        }
-      };
-
-      // Use a temporary handler keyed by 'temp' until we get the connectionId
-      this.messageHandlers.set('temp', messageHandler);
-      
-      console.log('Initiating SSH connection:', { host, username });
-      this.ws.send(JSON.stringify({
-        type: 'CONNECT',
-        host,
-        username,
-        password,
-        port
-      }));
-
-      // Set timeout for the entire connection
-      setTimeout(() => {
-        if (!hasResolved) {
-          console.log('Connection timeout');
-          this.messageHandlers.delete('temp');
-          if (connectionId) {
-            this.messageHandlers.delete(connectionId);
+        const messageHandler = (event) => {
+          const data = JSON.parse(event.data);
+          if (data.type === 'CONNECTED') {
+            this.ws.removeEventListener('message', messageHandler);
+            resolve(data);
+          } else if (data.type === 'ERROR') {
+            this.ws.removeEventListener('message', messageHandler);
+            reject(new Error(data.error));
           }
-          resolve({
-            success: false,
-            error: 'Connection timeout. Please try again.'
-          });
-        }
-      }, 10000);
+        };
+
+        this.ws.addEventListener('message', messageHandler);
+
+        // Add timeout
+        setTimeout(() => {
+          this.ws.removeEventListener('message', messageHandler);
+          reject(new Error('SSH connection timeout'));
+        }, 10000);
+
+      } catch (error) {
+        console.error('Error in connectSSH:', error);
+        reject(error);
+      }
     });
   }
 

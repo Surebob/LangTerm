@@ -90,16 +90,28 @@ wss.on('connection', (ws) => {
 async function handleSSHConnect(ws, data) {
   const { host, username, password, port = 22 } = data;
   try {
+    console.log(`Attempting SSH connection to ${host}:${port} as ${username}`);
     const conn = new Client();
     const connectionId = Date.now().toString();
 
+    // Add error handler for the SSH connection
+    conn.on('error', (err) => {
+      console.error('SSH Connection error:', err);
+      ws.send(JSON.stringify({
+        type: 'ERROR',
+        error: err.message
+      }));
+    });
+
     conn.on('ready', () => {
+      console.log(`SSH Connection established to ${host}`);
       conn.shell({
         term: 'xterm-256color',
         rows: 30,
         cols: 80,
       }, (err, stream) => {
         if (err) {
+          console.error('Shell error:', err);
           ws.send(JSON.stringify({
             type: 'ERROR',
             error: err.message
@@ -181,9 +193,11 @@ async function handleSSHConnect(ws, data) {
       password,
       readyTimeout: 5000,
       keepaliveInterval: 10000,
+      debug: (msg) => console.log('SSH Debug:', msg)  // Add SSH debug logging
     });
 
   } catch (error) {
+    console.error('SSH Connect error:', error);
     ws.send(JSON.stringify({
       type: 'ERROR',
       error: error.message
@@ -225,6 +239,11 @@ function handleSSHDisconnect(ws, connectionId) {
     message: 'SSH connection closed'
   }));
 }
+
+// Add error handler for the WebSocket server
+wss.on('error', (error) => {
+  console.error('WebSocket Server Error:', error);
+});
 
 server.listen(port, '0.0.0.0', () => {
   console.log(`SSH backend service running on port ${port}`);
