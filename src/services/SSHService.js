@@ -4,29 +4,31 @@ class SSHService {
     this.connections = new Map();
     this.ws = null;
     this.messageHandlers = new Map();
+    this.isConnected = false;
     
-    // Only try to connect if we're in the browser
-    if (typeof window !== 'undefined') {
-      this.baseUrl = process.env.NODE_ENV === 'production' 
-        ? `wss://${window.location.hostname}` // Remove port 3001 in production
-        : 'ws://localhost:3001';
-      this.isConnected = false;
-      this.connect();
-    }
+    // Don't initialize connection in constructor
+    // We'll do it when needed
+  }
+
+  // Initialize connection only when needed (client-side)
+  initialize() {
+    if (typeof window === 'undefined') return; // Guard against SSR
+    if (this.ws) return; // Guard against multiple initializations
+
+    const isProd = process.env.NODE_ENV === 'production';
+    this.baseUrl = isProd
+      ? `wss://${window.location.host}`
+      : 'ws://localhost:3001';
+
+    this.connect();
   }
 
   connect() {
     try {
-      // Don't attempt connection during build/SSR
       if (typeof window === 'undefined') return;
 
-      // For production, use the same port as the main site
-      const wsUrl = process.env.NODE_ENV === 'production'
-        ? `wss://${window.location.host}` // This will use the same port as the site
-        : this.baseUrl;
-
-      console.log('Attempting WebSocket connection to:', wsUrl);
-      this.ws = new WebSocket(wsUrl);
+      console.log('Attempting WebSocket connection to:', this.baseUrl);
+      this.ws = new WebSocket(this.baseUrl);
       
       this.ws.onopen = () => {
         console.log('WebSocket connected successfully');
@@ -70,6 +72,7 @@ class SSHService {
   }
 
   async connectSSH(host, username, password, port = 22) {
+    this.initialize(); // Initialize connection if needed
     if (!this.isConnected) {
       return {
         success: false,
@@ -146,6 +149,7 @@ class SSHService {
   }
 
   async executeCommand(connectionId, command) {
+    this.initialize(); // Initialize connection if needed
     if (!this.isConnected) {
       return {
         success: false,
@@ -184,6 +188,7 @@ class SSHService {
   }
 
   async disconnect(connectionId) {
+    this.initialize(); // Initialize connection if needed
     if (!this.isConnected) {
       return {
         success: false,
