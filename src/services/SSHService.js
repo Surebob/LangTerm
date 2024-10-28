@@ -5,6 +5,7 @@ class SSHService {
     this.ws = null;
     this.messageHandlers = new Map();
     this.isConnected = false;
+    this.pingInterval = null;
   }
 
   initialize() {
@@ -29,6 +30,13 @@ class SSHService {
       this.ws.onopen = () => {
         console.log('WebSocket connected successfully');
         this.isConnected = true;
+
+        // Set up ping interval
+        this.pingInterval = setInterval(() => {
+          if (this.ws.readyState === WebSocket.OPEN) {
+            this.ws.send(JSON.stringify({ type: 'PING' }));
+          }
+        }, 30000);
       };
       
       this.ws.onmessage = (event) => {
@@ -44,6 +52,9 @@ class SSHService {
       this.ws.onclose = () => {
         console.log('WebSocket disconnected, attempting reconnect...');
         this.isConnected = false;
+        if (this.pingInterval) {
+          clearInterval(this.pingInterval);
+        }
         setTimeout(() => this.connect(), 1000);
       };
 
@@ -210,6 +221,16 @@ class SSHService {
         connectionId
       }));
     });
+  }
+
+  // Clean up method
+  cleanup() {
+    if (this.pingInterval) {
+      clearInterval(this.pingInterval);
+    }
+    if (this.ws) {
+      this.ws.close();
+    }
   }
 }
 

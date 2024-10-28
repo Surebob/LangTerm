@@ -52,6 +52,13 @@ wss.on('connection', (ws) => {
   const wsId = Date.now().toString();
   wsConnections.set(wsId, ws);
 
+  // Add ping interval
+  const pingInterval = setInterval(() => {
+    if (ws.readyState === WebSocket.OPEN) {
+      ws.ping();
+    }
+  }, 30000); // Send ping every 30 seconds
+
   ws.on('message', async (message) => {
     const data = JSON.parse(message);
     const { type, connectionId, command } = data;
@@ -70,7 +77,13 @@ wss.on('connection', (ws) => {
   });
 
   ws.on('close', () => {
+    clearInterval(pingInterval); // Clean up ping interval
     wsConnections.delete(wsId);
+  });
+
+  ws.on('pong', () => {
+    // Optional: log or handle pong responses
+    console.log('Received pong from client');
   });
 });
 
