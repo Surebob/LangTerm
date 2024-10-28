@@ -11,8 +11,13 @@
   },
   "dependencies": {
     "@heroicons/react": "^1.0.6",
+    "@radix-ui/react-alert-dialog": "^1.1.2",
+    "@radix-ui/react-dialog": "^1.1.2",
+    "@radix-ui/react-slot": "^1.1.0",
     "@supabase/supabase-js": "^2.45.6",
     "ansi-to-html": "^0.7.2",
+    "class-variance-authority": "^0.7.0",
+    "clsx": "^2.1.1",
     "cors": "^2.8.5",
     "express": "^4.18.2",
     "framer-motion": "^11.11.9",
@@ -25,6 +30,8 @@
     "react-icons": "^5.3.0",
     "react-resizable": "^3.0.5",
     "ssh2": "^1.16.0",
+    "tailwind-merge": "^2.5.4",
+    "tailwindcss-animate": "^1.0.7",
     "ws": "^8.18.0"
   },
   "devDependencies": {

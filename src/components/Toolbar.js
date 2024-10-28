@@ -17,6 +17,34 @@ import {
   User,
   Settings as SettingsIcon,
 } from 'lucide-react';
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+  SheetFooter,
+  SheetClose,
+} from "@/components/ui/sheet"; // Ensure correct import path
+import { Button } from "@/components/ui/button";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
+import {
+  Alert,
+  AlertTitle,
+  AlertDescription,
+} from "@/components/ui/alert"
+import { CheckCircle2, AlertCircle } from "lucide-react"
 
 const Toolbar = () => {
   const router = useRouter();
@@ -30,6 +58,7 @@ const Toolbar = () => {
     addTerminal,
     setPasswordInput,
     setIsPasswordMode,
+    user,
   } = useContext(TerminalContext);
 
   const scrollContainerRef = useRef(null);
@@ -187,6 +216,49 @@ const Toolbar = () => {
   `;
   const actionButtonStyles = `${buttonBaseStyles} w-9 h-9`;
   const terminalButtonStyles = `${buttonBaseStyles} w-6 h-6 text-sm`;
+
+  // Update the form state initialization to include email
+  const [formData, setFormData] = useState({
+    username: '',
+    full_name: '',
+    avatar_url: '',
+    email: '',  // Add email field
+    user_metadata: {}
+  });
+
+  // Update useEffect to properly initialize email
+  useEffect(() => {
+    if (user) {
+      setFormData({
+        username: user.user_metadata?.username || '',
+        full_name: user.user_metadata?.full_name || '',
+        avatar_url: user.user_metadata?.avatar_url || '',
+        email: user.email || '',  // Initialize email from user data
+        user_metadata: user.user_metadata || {}
+      });
+    }
+  }, [user]);
+
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
+  };
+
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
+
+  // Add these state variables at the top of the component
+  const [showPasswordChange, setShowPasswordChange] = useState(false);
+  const [passwordForm, setPasswordForm] = useState({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: ''
+  });
+
+  // Add state for managing alerts
+  const [alerts, setAlerts] = useState([]);
 
   return (
     <div className="taskbar fixed bottom-0 left-0 w-full flex items-center h-12">
@@ -372,10 +444,19 @@ const Toolbar = () => {
             className="dropdown-menu absolute bottom-full right-2 w-56 mb-5"
           >
             <ul className="py-2 relative bg-glassmorphism bg-opacity-70 backdrop-blur-lg border border-white/20 rounded-lg shadow-lg">
-              <li className="flex items-center px-4 py-2 hover:bg-white/10 cursor-pointer transition-colors duration-200">
+              {/* Profile Sheet */}
+              <li
+                className="flex items-center px-4 py-2 hover:bg-white/10 cursor-pointer transition-colors duration-200"
+                onClick={() => {
+                  setIsProfileOpen(true);
+                  setIsSettingsOpen(false);
+                }}
+              >
                 <User size={16} className="mr-2" />
                 Profile
               </li>
+
+              {/* Other Menu Items */}
               <li className="flex items-center px-4 py-2 hover:bg-white/10 cursor-pointer transition-colors duration-200">
                 <SettingsIcon size={16} className="mr-2" />
                 Preferences
@@ -391,6 +472,160 @@ const Toolbar = () => {
             </ul>
           </div>
         )}
+      </div>
+
+      <Sheet open={isProfileOpen} onOpenChange={setIsProfileOpen}>
+        <SheetContent className="bg-glassmorphism backdrop-blur-2xl border-white/20">
+          <SheetHeader>
+            <SheetTitle className="text-white">Profile Settings</SheetTitle>
+            <SheetDescription className="text-gray-400">
+              Make changes to your profile here. Click save when you're done.
+            </SheetDescription>
+          </SheetHeader>
+          <div className="grid gap-4 py-4">
+            {/* Avatar Display */}
+            {formData.avatar_url && (
+              <div className="flex justify-center mb-4">
+                <img 
+                  src={formData.avatar_url} 
+                  alt="Profile" 
+                  className="w-20 h-20 rounded-full border-2 border-white/20"
+                />
+              </div>
+            )}
+            <div className="grid grid-cols-4 items-center gap-4">
+              <label className="text-right text-white" htmlFor="username">
+                Username
+              </label>
+              <input
+                id="username"
+                name="username"
+                className="col-span-3 bg-transparent border border-white/20 rounded p-2 text-white"
+                value={formData.username}
+                onChange={handleInputChange}
+                placeholder="Enter username"
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <label className="text-right text-white" htmlFor="full_name">
+                Full Name
+              </label>
+              <input
+                id="full_name"
+                name="full_name"
+                className="col-span-3 bg-transparent border border-white/20 rounded p-2 text-white"
+                value={formData.full_name}
+                onChange={handleInputChange}
+                placeholder="Enter full name"
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <label className="text-right text-white" htmlFor="email">
+                Email
+              </label>
+              <input
+                id="email"
+                name="email"
+                type="email"
+                className="col-span-3 bg-transparent border border-white/20 rounded p-2 text-white"
+                value={formData.email}
+                onChange={handleInputChange}
+                placeholder="Enter email"
+              />
+            </div>
+          </div>
+          <SheetFooter>
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button className="hover:bg-green-600 text-white py-2 relative bg-glassmorphism bg-opacity-70 backdrop-blur-lg border border-white/20 rounded-lg shadow-lg">
+                  Save changes
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Save Profile Changes</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Are you sure you want to save these changes to your profile? 
+                    {user && formData.email !== user.email && 
+                      " This includes changing your email address, which will require confirmation."}
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={async () => {
+                      try {
+                        // First update email if it's changed
+                        if (user && formData.email !== user.email) {
+                          const { error: emailError } = await supabase.auth.updateUser({
+                            email: formData.email
+                          });
+                          if (emailError) throw emailError;
+
+                          setAlerts(prev => [...prev, {
+                            id: Date.now(),
+                            type: 'success',
+                            title: 'Email Update',
+                            message: 'Check your new email for a confirmation link'
+                          }]);
+                        }
+
+                        // Update other metadata
+                        const { error: metadataError } = await supabase.auth.updateUser({
+                          data: {
+                            username: formData.username,
+                            full_name: formData.full_name,
+                          }
+                        });
+                        if (metadataError) throw metadataError;
+                        
+                        setAlerts(prev => [...prev, {
+                          id: Date.now(),
+                          type: 'success',
+                          title: 'Success',
+                          message: 'Profile updated successfully'
+                        }]);
+                        setIsProfileOpen(false);
+                      } catch (error) {
+                        setAlerts(prev => [...prev, {
+                          id: Date.now(),
+                          type: 'destructive',
+                          title: 'Error',
+                          message: error.message
+                        }]);
+                      }
+                    }}
+                  >
+                    Save Changes
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </SheetFooter>
+        </SheetContent>
+      </Sheet>
+
+      {/* Add this at the bottom of your JSX, replacing the existing alerts */}
+      <div className="fixed bottom-16 right-4 z-50 w-80 flex flex-col gap-2">
+        {alerts.map(alert => (
+          <Alert 
+            key={alert.id}
+            variant={alert.type}
+            onClose={() => setAlerts(prev => prev.filter(a => a.id !== alert.id))}
+          >
+            {alert.type === 'success' ? (
+              <CheckCircle2 className="h-4 w-4 text-green-500" />
+            ) : (
+              <AlertCircle className="h-4 w-4 text-red-500" />
+            )}
+            <AlertTitle className={alert.type === 'success' ? 'text-green-500' : 'text-red-500'}>
+              {alert.title}
+            </AlertTitle>
+            <AlertDescription className="text-gray-300">
+              {alert.message}
+            </AlertDescription>
+          </Alert>
+        ))}
       </div>
     </div>
   );

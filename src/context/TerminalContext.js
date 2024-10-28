@@ -43,16 +43,58 @@ export const TerminalProvider = ({ children }) => {
   useEffect(() => {
     const checkSession = async () => {
       const { data: { session }, error } = await supabase.auth.getSession();
-      if (!error) {
+      if (!error && session) {
+        // Check if this is a login after email change
+        const currentEmail = session.user.email;
+        const metadataEmail = session.user.user_metadata.email;
+
+        // If emails don't match, update the metadata
+        if (metadataEmail && currentEmail !== metadataEmail) {
+          const { error: updateError } = await supabase.auth.updateUser({
+            data: {
+              ...session.user.user_metadata,
+              email: currentEmail,
+              user_metadata: {
+                ...session.user.user_metadata.user_metadata,
+                email: currentEmail
+              }
+            }
+          });
+          if (updateError) {
+            console.error('Error updating user metadata:', updateError);
+          }
+        }
+
         setSession(session);
         setUser(session?.user || null);
       }
     };
     checkSession();
 
-    const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
       setSession(session);
       setUser(session?.user || null);
+
+      // Handle email change confirmation specifically
+      if (event === 'user_updated' && session?.user?.email !== user?.email) {
+        const user = session?.user;
+        if (user) {
+          // Update metadata email only after email is actually changed
+          const { error: metadataError } = await supabase.auth.updateUser({
+            data: {
+              ...user.user_metadata,
+              email: user.email,
+              user_metadata: {
+                ...user.user_metadata.user_metadata,
+                email: user.email
+              }
+            }
+          });
+          if (metadataError) {
+            console.error('Error updating user metadata:', metadataError);
+          }
+        }
+      }
     });
 
     return () => authListener.subscription.unsubscribe();
