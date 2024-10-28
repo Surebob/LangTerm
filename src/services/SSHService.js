@@ -23,11 +23,9 @@ class SSHService {
         const data = JSON.parse(event.data);
         console.log('WebSocket received:', data);
         
-        // Handle message handlers
         const handler = this.messageHandlers.get(data.connectionId) || this.messageHandlers.get('temp');
         if (handler) {
           handler(data);
-          // We manage the deletion of the handler inside the handler itself
         }
       };
 
@@ -38,10 +36,22 @@ class SSHService {
       };
 
       this.ws.onerror = (error) => {
-        console.error('WebSocket error:', error);
+        console.error('WebSocket error:', {
+          message: error.message,
+          type: error.type,
+          error: error.error,
+          target: {
+            url: error.target?.url,
+            readyState: error.target?.readyState,
+            protocol: error.target?.protocol
+          }
+        });
       };
     } catch (error) {
-      console.error('Failed to create WebSocket:', error);
+      console.error('Failed to create WebSocket:', {
+        message: error.message,
+        stack: error.stack
+      });
     }
   }
 

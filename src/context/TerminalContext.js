@@ -98,7 +98,7 @@ export const TerminalProvider = ({ children }) => {
     });
 
     return () => authListener.subscription.unsubscribe();
-  }, []);
+  }, [user?.email]); // Add user?.email to dependencies
 
   // Load terminals from localStorage
   useEffect(() => {

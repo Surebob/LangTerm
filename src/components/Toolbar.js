@@ -45,6 +45,7 @@ import {
   AlertDescription,
 } from "@/components/ui/alert"
 import { CheckCircle2, AlertCircle } from "lucide-react"
+import Image from 'next/image';
 
 const Toolbar = () => {
   const router = useRouter();
@@ -479,17 +480,19 @@ const Toolbar = () => {
           <SheetHeader>
             <SheetTitle className="text-white">Profile Settings</SheetTitle>
             <SheetDescription className="text-gray-400">
-              Make changes to your profile here. Click save when you're done.
+              Make changes to your profile here. Click save when you are done.
             </SheetDescription>
           </SheetHeader>
           <div className="grid gap-4 py-4">
             {/* Avatar Display */}
             {formData.avatar_url && (
               <div className="flex justify-center mb-4">
-                <img 
+                <Image 
                   src={formData.avatar_url} 
                   alt="Profile" 
-                  className="w-20 h-20 rounded-full border-2 border-white/20"
+                  width={32} 
+                  height={32} 
+                  className="rounded-full" 
                 />
               </div>
             )}
@@ -545,7 +548,7 @@ const Toolbar = () => {
                 <AlertDialogHeader>
                   <AlertDialogTitle>Save Profile Changes</AlertDialogTitle>
                   <AlertDialogDescription>
-                    Are you sure you want to save these changes to your profile? 
+                    Are you sure you want to save these changes to your profile?
                     {user && formData.email !== user.email && 
                       " This includes changing your email address, which will require confirmation."}
                   </AlertDialogDescription>
