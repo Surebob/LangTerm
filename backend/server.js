@@ -8,8 +8,8 @@ const Convert = require('ansi-to-html');
 const app = express();
 const server = http.createServer(app);
 const wss = new WebSocket.Server({ 
-  port: process.env.NODE_ENV === 'production' ? 443 : 3001,
-  // Add any necessary SSL configuration for production
+  server, // Attach to the HTTP server instead of specifying a port
+  // Remove the port configuration since we're attaching to the server
 });
 
 const port = process.env.PORT || 3001;

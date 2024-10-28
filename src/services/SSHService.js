@@ -8,7 +8,7 @@ class SSHService {
     // Only try to connect if we're in the browser
     if (typeof window !== 'undefined') {
       this.baseUrl = process.env.NODE_ENV === 'production' 
-        ? `wss://${window.location.hostname}` // Use the current domain with secure WebSocket
+        ? `wss://${window.location.hostname}` // Remove port 3001 in production
         : 'ws://localhost:3001';
       this.isConnected = false;
       this.connect();
@@ -20,8 +20,13 @@ class SSHService {
       // Don't attempt connection during build/SSR
       if (typeof window === 'undefined') return;
 
-      console.log('Attempting WebSocket connection to:', this.baseUrl);
-      this.ws = new WebSocket(this.baseUrl);
+      // For production, use the same port as the main site
+      const wsUrl = process.env.NODE_ENV === 'production'
+        ? `wss://${window.location.host}` // This will use the same port as the site
+        : this.baseUrl;
+
+      console.log('Attempting WebSocket connection to:', wsUrl);
+      this.ws = new WebSocket(wsUrl);
       
       this.ws.onopen = () => {
         console.log('WebSocket connected successfully');
