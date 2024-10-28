@@ -4,6 +4,7 @@ const { Client } = require('ssh2');
 const WebSocket = require('ws');
 const http = require('http');
 const Convert = require('ansi-to-html');
+const { createProxyMiddleware } = require('http-proxy-middleware');
 
 const app = express();
 const server = http.createServer(app);
@@ -16,6 +17,13 @@ const wss = new WebSocket.Server({
 
 // Use port 8080 in production (Digital Ocean's default)
 const port = process.env.PORT || 8080;
+
+// Proxy all non-websocket requests to Next.js
+app.use('/', createProxyMiddleware({
+  target: 'http://localhost:3000',
+  changeOrigin: true,
+  ws: false // Don't proxy WebSocket connections
+}));
 
 // Add a health check endpoint
 app.get('/health', (req, res) => {
