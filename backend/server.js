@@ -7,10 +7,15 @@ const Convert = require('ansi-to-html');
 
 const app = express();
 const server = http.createServer(app);
-const wss = new WebSocket.Server({ server });
 
-// Use a different port for the backend
-const port = process.env.BACKEND_PORT || process.env.PORT || 3001;
+// Create WebSocket server with path
+const wss = new WebSocket.Server({ 
+  server,
+  path: '/ws'  // Add path for WebSocket connections
+});
+
+// Use port 8080 in production (Digital Ocean's default)
+const port = process.env.PORT || 8080;
 
 // Add a health check endpoint
 app.get('/health', (req, res) => {
@@ -200,7 +205,7 @@ function handleSSHDisconnect(ws, connectionId) {
   }));
 }
 
-server.listen(port, '0.0.0.0', () => {  // Listen on all network interfaces
+server.listen(port, '0.0.0.0', () => {
   console.log(`SSH backend service running on port ${port}`);
   console.log(`Environment: ${process.env.NODE_ENV}`);
   console.log(`Server address: ${server.address().address}:${server.address().port}`);

@@ -15,9 +15,9 @@ class SSHService {
     if (typeof window === 'undefined') return; // Guard against SSR
     if (this.ws) return; // Guard against multiple initializations
 
-    const isProd = process.env.NODE_ENV === 'production';
+    const isProd = window.location.hostname === 'langterm.ai';
     this.baseUrl = isProd
-      ? `wss://${window.location.host}`
+      ? `wss://${window.location.hostname}/ws`  // Use path-based routing instead of port
       : 'ws://localhost:3001';
 
     this.connect();
