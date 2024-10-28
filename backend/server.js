@@ -9,8 +9,8 @@ const app = express();
 const server = http.createServer(app);
 const wss = new WebSocket.Server({ server });
 
-// Use Digital Ocean's PORT env variable or fallback to 3001 for local dev
-const port = process.env.PORT || 3001;
+// Use a different port for the backend
+const port = process.env.BACKEND_PORT || process.env.PORT || 3001;
 
 // Add a health check endpoint
 app.get('/health', (req, res) => {

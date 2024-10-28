@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "node backend/server.js & next start",
+    "start": "BACKEND_PORT=3001 node backend/server.js & PORT=8080 next start",
     "backend": "node backend/server.js",
     "lint": "next lint"
   },
