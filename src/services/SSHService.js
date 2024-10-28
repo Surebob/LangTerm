@@ -4,7 +4,7 @@ class SSHService {
     this.connections = new Map();
     this.ws = null;
     this.messageHandlers = new Map();
-    this.baseUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'ws://loadguard.ai:3001';
+    this.baseUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'ws://langterm.ai:3001';
     this.isConnected = false;
     this.connect();
   }
