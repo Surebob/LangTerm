@@ -7,12 +7,15 @@ const Convert = require('ansi-to-html');
 
 const app = express();
 const server = http.createServer(app);
-const wss = new WebSocket.Server({ 
-  server, // Attach to the HTTP server instead of specifying a port
-  // Remove the port configuration since we're attaching to the server
-});
+const wss = new WebSocket.Server({ server });
 
+// Use Digital Ocean's PORT env variable or fallback to 3001 for local dev
 const port = process.env.PORT || 3001;
+
+// Add a health check endpoint
+app.get('/health', (req, res) => {
+  res.status(200).send('OK');
+});
 
 // Initialize ANSI converter
 const convert = new Convert({
@@ -197,6 +200,8 @@ function handleSSHDisconnect(ws, connectionId) {
   }));
 }
 
-server.listen(port, () => {
+server.listen(port, '0.0.0.0', () => {  // Listen on all network interfaces
   console.log(`SSH backend service running on port ${port}`);
+  console.log(`Environment: ${process.env.NODE_ENV}`);
+  console.log(`Server address: ${server.address().address}:${server.address().port}`);
 });
