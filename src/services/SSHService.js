@@ -4,7 +4,10 @@ class SSHService {
     this.connections = new Map();
     this.ws = null;
     this.messageHandlers = new Map();
-    this.baseUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'ws://langterm.ai:3001';
+    // Handle different environments
+    this.baseUrl = process.env.NODE_ENV === 'production' 
+      ? 'wss://langterm.ai'  // Production WebSocket URL with secure protocol
+      : 'ws://localhost:3001'; // Development WebSocket URL
     this.isConnected = false;
     this.connect();
   }
