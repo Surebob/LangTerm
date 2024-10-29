@@ -5,12 +5,29 @@ import React, { useContext, useState, useRef, useEffect } from "react";
 import { ResizableBox } from "react-resizable";
 import { TerminalContext } from "../context/TerminalContext";
 import "react-resizable/css/styles.css";
-import { Terminal } from 'xterm';
-import { FitAddon } from '@xterm/addon-fit';
-import { WebLinksAddon } from '@xterm/addon-web-links';
-import { SearchAddon } from '@xterm/addon-search';
-import { Unicode11Addon } from '@xterm/addon-unicode11';
-import 'xterm/css/xterm.css';
+import dynamic from 'next/dynamic';
+
+// Dynamically import xterm and its addons
+const Terminal = dynamic(() => import('xterm').then(mod => mod.Terminal), {
+  ssr: false
+});
+const FitAddon = dynamic(() => import('@xterm/addon-fit').then(mod => mod.FitAddon), {
+  ssr: false
+});
+const WebLinksAddon = dynamic(() => import('@xterm/addon-web-links').then(mod => mod.WebLinksAddon), {
+  ssr: false
+});
+const SearchAddon = dynamic(() => import('@xterm/addon-search').then(mod => mod.SearchAddon), {
+  ssr: false
+});
+const Unicode11Addon = dynamic(() => import('@xterm/addon-unicode11').then(mod => mod.Unicode11Addon), {
+  ssr: false
+});
+
+// Import xterm CSS only on client side
+if (typeof window !== 'undefined') {
+  require('xterm/css/xterm.css');
+}
 
 const TerminalWindow = () => {
   const {
@@ -311,10 +328,9 @@ const TerminalWindow = () => {
             const printable = !ev.altKey && !ev.ctrlKey && !ev.metaKey;
 
             if (ev.keyCode === 13) { // Enter
-              const currentLine = termRef.currentLine;
               term.write('\r\n');
               handleCommandSubmit(terminal.id);
-              termRef.currentLine = '';
+              currentLine = '';
             } else if (ev.keyCode === 8) { // Backspace
               if (currentLine.length > 0) {
                 currentLine = currentLine.slice(0, -1);
@@ -369,18 +385,12 @@ const TerminalWindow = () => {
     return () => window.removeEventListener('resize', handleResize);
   }, [terminals]);
 
-  // Add this function
-  const writePrompt = (term) => {
-    term.write('\r\n' + promptText);
-  };
-
-  // Update handleCommandSubmit to write prompt after command execution
   const handleCommandSubmit = async (id) => {
     const termRef = terminalRefs.current[id];
     if (!termRef) return;
 
     const term = termRef.terminal;
-    const currentLine = termRef.currentLine;
+    const currentInput = getCurrentInput(id);
     
     try {
       if (isPasswordMode[id]) {
@@ -389,9 +399,11 @@ const TerminalWindow = () => {
         
         term.write('\r\nConnecting...\r\n');
         
-        const result = await connectSSH(id, command, currentLine);
+        const result = await connectSSH(id, command, currentInput);
         
         if (result.success) {
+          // Clear terminal
+          term.clear();
           // Write welcome message
           if (result.initialOutput) {
             term.write(result.initialOutput);
@@ -400,27 +412,19 @@ const TerminalWindow = () => {
           term.writeln(result.error || "Failed to connect");
         }
       } else if (sshConnections[id]) {
-        const result = await handleSSHCommand(id, currentLine);
+        const result = await handleSSHCommand(id, currentInput);
         if (result.success) {
           term.write(result.output);
         } else {
           term.writeln(result.error);
         }
       }
-
-      // Reset current line
-      termRef.currentLine = '';
-
-      // Write prompt after command execution
-      if (!sshConnections[id]) {
-        writePrompt(term);
-      }
-
     } catch (error) {
       console.error('Command execution error:', error);
       term.writeln(error.message || 'Command execution failed');
-      writePrompt(term);
     }
+    
+    setCurrentInput(id, "");
   };
 
   // Add this effect to handle scrolling
