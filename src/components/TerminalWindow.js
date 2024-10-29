@@ -311,9 +311,10 @@ const TerminalWindow = () => {
             const printable = !ev.altKey && !ev.ctrlKey && !ev.metaKey;
 
             if (ev.keyCode === 13) { // Enter
+              const currentLine = termRef.currentLine;
               term.write('\r\n');
               handleCommandSubmit(terminal.id);
-              currentLine = '';
+              termRef.currentLine = '';
             } else if (ev.keyCode === 8) { // Backspace
               if (currentLine.length > 0) {
                 currentLine = currentLine.slice(0, -1);
@@ -368,12 +369,18 @@ const TerminalWindow = () => {
     return () => window.removeEventListener('resize', handleResize);
   }, [terminals]);
 
+  // Add this function
+  const writePrompt = (term) => {
+    term.write('\r\n' + promptText);
+  };
+
+  // Update handleCommandSubmit to write prompt after command execution
   const handleCommandSubmit = async (id) => {
     const termRef = terminalRefs.current[id];
     if (!termRef) return;
 
     const term = termRef.terminal;
-    const currentInput = getCurrentInput(id);
+    const currentLine = termRef.currentLine;
     
     try {
       if (isPasswordMode[id]) {
@@ -382,11 +389,9 @@ const TerminalWindow = () => {
         
         term.write('\r\nConnecting...\r\n');
         
-        const result = await connectSSH(id, command, currentInput);
+        const result = await connectSSH(id, command, currentLine);
         
         if (result.success) {
-          // Clear terminal
-          term.clear();
           // Write welcome message
           if (result.initialOutput) {
             term.write(result.initialOutput);
@@ -395,19 +400,27 @@ const TerminalWindow = () => {
           term.writeln(result.error || "Failed to connect");
         }
       } else if (sshConnections[id]) {
-        const result = await handleSSHCommand(id, currentInput);
+        const result = await handleSSHCommand(id, currentLine);
         if (result.success) {
           term.write(result.output);
         } else {
           term.writeln(result.error);
         }
       }
+
+      // Reset current line
+      termRef.currentLine = '';
+
+      // Write prompt after command execution
+      if (!sshConnections[id]) {
+        writePrompt(term);
+      }
+
     } catch (error) {
       console.error('Command execution error:', error);
       term.writeln(error.message || 'Command execution failed');
+      writePrompt(term);
     }
-    
-    setCurrentInput(id, "");
   };
 
   // Add this effect to handle scrolling
