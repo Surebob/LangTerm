@@ -6,8 +6,10 @@ import { ResizableBox } from "react-resizable";
 import { TerminalContext } from "../context/TerminalContext";
 import "react-resizable/css/styles.css";
 import { Terminal } from 'xterm';
-import { FitAddon } from 'xterm-addon-fit';
-import { WebLinksAddon } from 'xterm-addon-web-links';
+import { FitAddon } from '@xterm/addon-fit';
+import { WebLinksAddon } from '@xterm/addon-web-links';
+import { SearchAddon } from '@xterm/addon-search';
+import { Unicode11Addon } from '@xterm/addon-unicode11';
 import 'xterm/css/xterm.css';
 
 const TerminalWindow = () => {
@@ -258,25 +260,38 @@ const TerminalWindow = () => {
           allowTransparency: true,
           scrollback: 10000,
           cols: 100,
-          rows: 24
+          rows: 24,
+          convertEol: true,
+          windowsMode: false, // Disable Windows line ending mode
+          wordSeparator: ' ()[]{}\'"', // Characters that separate words
+          allowProposedApi: true, // Enable proposed API features
+          macOptionIsMeta: true, // Make Option key behave as Meta on macOS
+          altClickMovesCursor: true, // Alt + Click moves cursor
+          screenReaderMode: false, // Disable screen reader mode
+          rightClickSelectsWord: true // Right click selects word under cursor
         });
 
+        // Load addons
         const fitAddon = new FitAddon();
+        const searchAddon = new SearchAddon();
+        const unicode11Addon = new Unicode11Addon();
+        
         term.loadAddon(fitAddon);
         term.loadAddon(new WebLinksAddon());
+        term.loadAddon(searchAddon);
+        term.loadAddon(unicode11Addon);
+
+        // Enable Unicode 11 features
+        term.unicode.activeVersion = '11';
 
         const terminalElement = document.getElementById(`terminal-${terminal.id}`);
         if (terminalElement) {
-          // Clear existing content
           terminalElement.innerHTML = '';
-          
-          // Set up terminal container
           terminalElement.style.padding = '12px';
           terminalElement.style.height = '100%';
           terminalElement.style.width = '100%';
           terminalElement.style.overflow = 'hidden';
           
-          // Open terminal
           term.open(terminalElement);
           fitAddon.fit();
 
@@ -287,32 +302,53 @@ const TerminalWindow = () => {
           });
           term.writeln('');
 
-          // Handle terminal input
+          let currentLine = '';
+          let currentPrompt = '';
+
+          // Handle special keys
+          term.onKey(({ key, domEvent }) => {
+            const ev = domEvent;
+            const printable = !ev.altKey && !ev.ctrlKey && !ev.metaKey;
+
+            if (ev.keyCode === 13) { // Enter
+              term.write('\r\n');
+              handleCommandSubmit(terminal.id);
+              currentLine = '';
+            } else if (ev.keyCode === 8) { // Backspace
+              if (currentLine.length > 0) {
+                currentLine = currentLine.slice(0, -1);
+                term.write('\b \b');
+              }
+            } else if (printable) {
+              currentLine += key;
+              term.write(key);
+            }
+          });
+
+          // Handle paste events
           term.onData(data => {
             if (sshConnections[terminal.id]) {
               // If SSH connected, send data directly
               handleSSHCommand(terminal.id, data);
             } else {
-              // Otherwise, build up command buffer
-              const currentInput = getCurrentInput(terminal.id);
-              if (data === '\r') { // Enter key
-                handleCommandSubmit(terminal.id);
-              } else if (data === '\u007f') { // Backspace
-                if (currentInput.length > 0) {
-                  setCurrentInput(terminal.id, currentInput.slice(0, -1));
-                  term.write('\b \b');
-                }
-              } else {
-                setCurrentInput(terminal.id, currentInput + data);
-                term.write(data);
-              }
+              // Handle pasted data
+              const lines = data.split(/\r?\n/);
+              lines.forEach((line, i) => {
+                if (i > 0) term.write('\r\n');
+                term.write(line);
+                currentLine += line;
+              });
             }
           });
 
-          // Store terminal reference
+          // Store terminal reference with all addons
           terminalRefs.current[terminal.id] = {
             terminal: term,
-            fitAddon: fitAddon
+            fitAddon,
+            searchAddon,
+            unicode11Addon,
+            currentLine,
+            currentPrompt
           };
         }
       }
@@ -344,12 +380,14 @@ const TerminalWindow = () => {
         const command = passwordInput[id];
         setIsPasswordMode(prev => ({ ...prev, [id]: false }));
         
-        term.writeln('\r\nConnecting...');
+        term.write('\r\nConnecting...\r\n');
         
         const result = await connectSSH(id, command, currentInput);
         
         if (result.success) {
-          term.writeln(result.message);
+          // Clear terminal
+          term.clear();
+          // Write welcome message
           if (result.initialOutput) {
             term.write(result.initialOutput);
           }
