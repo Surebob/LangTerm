@@ -14,8 +14,8 @@ class SSHService {
 
     const isProd = window.location.hostname === 'langterm.ai';
     this.baseUrl = isProd
-      ? `wss://${window.location.hostname}/ws`
-      : 'ws://localhost:3001';
+      ? 'wss://your-backend-domain-or-ip:port/ws'
+      : 'ws://localhost:8080';
 
     this.connect();
   }
