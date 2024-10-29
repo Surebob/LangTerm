@@ -5,6 +5,10 @@ import React, { useContext, useState, useRef, useEffect } from "react";
 import { ResizableBox } from "react-resizable";
 import { TerminalContext } from "../context/TerminalContext";
 import "react-resizable/css/styles.css";
+import { Terminal } from 'xterm';
+import { FitAddon } from 'xterm-addon-fit';
+import { WebLinksAddon } from 'xterm-addon-web-links';
+import 'xterm/css/xterm.css';
 
 const TerminalWindow = () => {
   const {
@@ -49,6 +53,7 @@ const TerminalWindow = () => {
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const terminalBodyRefs = useRef({});
+  const terminalRefs = useRef({});
 
   // Format username function
   const formatUsername = (user) => {
@@ -219,7 +224,39 @@ const TerminalWindow = () => {
     };
   }, [isDragging, dragStart, gridPosition, zoomLevel, terminals, updateTerminalPosition]);
 
+  React.useEffect(() => {
+    terminals.forEach(terminal => {
+      if (!terminalRefs.current[terminal.id]) {
+        const term = new Terminal({
+          fontFamily: 'Ubuntu Mono, monospace',
+          fontSize: 14,
+          theme: {
+            background: '#1a1a1a',
+            foreground: '#ffffff'
+          }
+        });
+
+        const fitAddon = new FitAddon();
+        term.loadAddon(fitAddon);
+        term.loadAddon(new WebLinksAddon());
+
+        const terminalElement = document.getElementById(`terminal-${terminal.id}`);
+        if (terminalElement) {
+          term.open(terminalElement);
+          fitAddon.fit();
+          terminalRefs.current[terminal.id] = term;
+
+          // Write ASCII art
+          term.writeln(asciiArt);
+        }
+      }
+    });
+  }, [terminals]);
+
   const handleCommandSubmit = async (id) => {
+    const term = terminalRefs.current[id];
+    if (!term) return;
+
     const currentInput = getCurrentInput(id);
     const terminal = terminals.find(t => t.id === id);
     if (!terminal) return;
@@ -229,27 +266,29 @@ const TerminalWindow = () => {
         const command = passwordInput[id];
         setIsPasswordMode(prev => ({ ...prev, [id]: false }));
         
-        // Clear password prompt and show connecting message
-        addCommandToTerminal(id, "", "Connecting...", false);
+        term.writeln('Connecting...');
         
         const result = await connectSSH(id, command, currentInput);
         
         if (result.success) {
-          addCommandToTerminal(id, "", result.message + '\n' + (result.initialOutput || ''), true);
+          term.write(result.message + '\r\n');
+          if (result.initialOutput) {
+            term.write(result.initialOutput);
+          }
         } else {
-          addCommandToTerminal(id, "", result.error || "Failed to connect", false);
+          term.writeln(result.error || "Failed to connect");
         }
       } else if (sshConnections[id]) {
         const result = await handleSSHCommand(id, currentInput);
         if (result.success) {
-          addCommandToTerminal(id, currentInput, result.output, true);
+          term.write(result.output);
         } else {
-          addCommandToTerminal(id, currentInput, result.error, false);
+          term.writeln(result.error);
         }
       }
     } catch (error) {
       console.error('Command execution error:', error);
-      addCommandToTerminal(id, currentInput, error.message || 'Command execution failed', false);
+      term.writeln(error.message || 'Command execution failed');
     }
     
     setCurrentInput(id, "");
