@@ -108,11 +108,11 @@ class SSHService {
 
         this.ws.addEventListener('message', messageHandler);
 
-        // Add timeout
+        // Increase timeout to 30 seconds
         setTimeout(() => {
           this.ws.removeEventListener('message', messageHandler);
           reject(new Error('SSH connection timeout'));
-        }, 10000);
+        }, 30000);
 
       } catch (error) {
         console.error('Error in connectSSH:', error);

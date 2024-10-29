@@ -5,6 +5,7 @@ const WebSocket = require('ws');
 const http = require('http');
 const Convert = require('ansi-to-html');
 const { createProxyMiddleware } = require('http-proxy-middleware');
+const net = require('net');
 
 const app = express();
 const server = http.createServer(app);
@@ -91,6 +92,46 @@ async function handleSSHConnect(ws, data) {
   const { host, username, password, port = 22 } = data;
   try {
     console.log(`Attempting SSH connection to ${host}:${port} as ${username}`);
+    
+    // Try both port 22 and 443
+    let testSocket;
+    let successfulPort;
+    
+    for (const testPort of [port, 443]) {
+      testSocket = new net.Socket();
+      try {
+        await new Promise((resolve, reject) => {
+          const timeout = setTimeout(() => {
+            testSocket.destroy();
+            reject(new Error(`Connection test timeout to ${host}:${testPort}`));
+          }, 5000);
+
+          testSocket.connect(testPort, host, () => {
+            clearTimeout(timeout);
+            testSocket.destroy();
+            successfulPort = testPort;
+            resolve();
+          });
+
+          testSocket.on('error', (err) => {
+            clearTimeout(timeout);
+            reject(err);
+          });
+        });
+        
+        // If we get here, connection was successful
+        console.log(`Network connection test successful to ${host}:${successfulPort}`);
+        break;
+      } catch (err) {
+        console.log(`Connection failed on port ${testPort}:`, err.message);
+        continue;
+      }
+    }
+
+    if (!successfulPort) {
+      throw new Error('Could not connect on any available port');
+    }
+    
     const conn = new Client();
     const connectionId = Date.now().toString();
 
@@ -188,12 +229,29 @@ async function handleSSHConnect(ws, data) {
 
     conn.connect({
       host,
-      port,
+      port: successfulPort,  // Use the successful port
       username,
       password,
-      readyTimeout: 5000,
+      readyTimeout: 20000,
       keepaliveInterval: 10000,
-      debug: (msg) => console.log('SSH Debug:', msg)  // Add SSH debug logging
+      keepaliveCountMax: 3,
+      debug: (msg) => console.log('SSH Debug:', msg),
+      algorithms: {
+        kex: [
+          'ecdh-sha2-nistp256',
+          'ecdh-sha2-nistp384',
+          'ecdh-sha2-nistp521',
+          'diffie-hellman-group-exchange-sha256',
+          'diffie-hellman-group14-sha1'
+        ],
+        cipher: [
+          'aes128-ctr',
+          'aes192-ctr',
+          'aes256-ctr',
+          'aes128-gcm',
+          'aes256-gcm'
+        ]
+      }
     });
 
   } catch (error) {
