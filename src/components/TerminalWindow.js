@@ -224,68 +224,34 @@ const TerminalWindow = () => {
     const terminal = terminals.find(t => t.id === id);
     if (!terminal) return;
     
-    if (isPasswordMode[id]) {
-      // Handle password input
-      const command = passwordInput[id];
-      setIsPasswordMode(prev => ({ ...prev, [id]: false }));
-      
-      // Clear password prompt and show connecting message
-      setTerminals(prevTerminals =>
-        prevTerminals.map(t => {
-          if (t.id === id) {
-            return {
-              ...t,
-              commands: t.commands.filter(cmd => cmd.output !== "Enter password:").concat({
-                command: "",
-                output: "Connecting...",
-                isHtml: false
-              })
-            };
-          }
-          return t;
-        })
-      );
-      
-      const result = await connectSSH(id, command, currentInput);
-      
-      // On successful connection, keep ASCII art but clear "Connecting..."
-      if (result.success) {
-        console.log('SSH Connection successful, adding to terminal:', {
-          message: result.message,
-          output: result.output
-        });
-        setTerminals(prevTerminals =>
-          prevTerminals.map(t => {
-            if (t.id === id) {
-              return {
-                ...t,
-                // Clear all previous messages except ASCII art
-                commands: [{
-                  command: "",
-                  output: result.message + '\n' + result.output,
-                  isHtml: true
-                }]
-              };
-            }
-            return t;
-          })
-        );
+    try {
+      if (isPasswordMode[id]) {
+        const command = passwordInput[id];
+        setIsPasswordMode(prev => ({ ...prev, [id]: false }));
         
-        // Add the initial SSH output after a short delay to ensure proper order
-        setTimeout(() => {
-          if (result.initialOutput) {
-            addCommandToTerminal(id, "", result.initialOutput, true);
-          }
-        }, 100);
-      } else {
-        // If connection failed, show the error
-        addCommandToTerminal(id, "", result.error || "Failed to connect", true);
+        // Clear password prompt and show connecting message
+        addCommandToTerminal(id, "", "Connecting...", false);
+        
+        const result = await connectSSH(id, command, currentInput);
+        
+        if (result.success) {
+          addCommandToTerminal(id, "", result.message + '\n' + (result.initialOutput || ''), true);
+        } else {
+          addCommandToTerminal(id, "", result.error || "Failed to connect", false);
+        }
+      } else if (sshConnections[id]) {
+        const result = await handleSSHCommand(id, currentInput);
+        if (result.success) {
+          addCommandToTerminal(id, currentInput, result.output, true);
+        } else {
+          addCommandToTerminal(id, currentInput, result.error, false);
+        }
       }
-    } else if (sshConnections[id]) {
-      // Handle SSH command
-      const result = await handleSSHCommand(id, currentInput);
-      addCommandToTerminal(id, "", result.output, true);
+    } catch (error) {
+      console.error('Command execution error:', error);
+      addCommandToTerminal(id, currentInput, error.message || 'Command execution failed', false);
     }
+    
     setCurrentInput(id, "");
   };
 

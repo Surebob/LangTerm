@@ -1,4 +1,6 @@
 // SSHService.js
+import { supabase } from '../lib/supabaseClient';
+
 class SSHService {
   constructor() {
     this.connections = new Map();
@@ -8,7 +10,7 @@ class SSHService {
     this.pingInterval = null;
   }
 
-  initialize() {
+  async initialize() {
     if (typeof window === 'undefined') return;
     if (this.ws) return;
 
@@ -18,19 +20,17 @@ class SSHService {
       ? 'wss://backend.langterm.ai/ws'
       : 'ws://localhost:8080';
 
-    // Get the session token from Supabase
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (!session) {
-        console.error('No active session');
-        return;
-      }
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      console.error('No active session');
+      return;
+    }
 
-      const headers = {
-        'Authorization': `Bearer ${session.access_token}`
-      };
+    const headers = {
+      'Authorization': `Bearer ${session.access_token}`
+    };
 
-      this.connect(headers);
-    });
+    this.connect(headers);
   }
 
   connect(headers = {}) {

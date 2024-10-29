@@ -256,37 +256,49 @@ export const TerminalProvider = ({ children }) => {
   };
 
   const connectSSH = async (terminalId, storedCommand, password) => {
-    const match = storedCommand.match(/ssh\s+(\w+)@([\w.-]+)(?:\s+-p\s+(\d+))?/);
-    if (!match) {
+    try {
+      const match = storedCommand.match(/ssh\s+(\w+)@([\w.-]+)(?:\s+-p\s+(\d+))?/);
+      if (!match) {
+        return {
+          success: false,
+          error: 'Invalid SSH command. Use format: ssh user@host [-p port]'
+        };
+      }
+
+      const [, username, host, port] = match;
+
+      // Use connectSSH from sshService
+      const result = await sshService.connectSSH(host, username, password, port || 22);
+      
+      if (result.connectionId) {  // Check for connectionId instead of success
+        setSSHConnections(prev => ({
+          ...prev,
+          [terminalId]: {
+            connectionId: result.connectionId,
+            host,
+            username
+          }
+        }));
+
+        return {
+          success: true,
+          message: result.message,
+          initialOutput: result.output
+        };
+      }
+
       return {
         success: false,
-        output: 'Invalid SSH command. Use format: ssh user@host [-p port]'
+        error: result.error || 'Failed to connect'
       };
-    }
 
-    const [, username, host, port] = match;
-
-    // Use connectSSH instead of executeCommand
-    const result = await sshService.connectSSH(host, username, password, port || 22);
-    
-    if (result.success) {
-      setSSHConnections(prev => ({
-        ...prev,
-        [terminalId]: {
-          connectionId: result.connectionId,
-          host,
-          username
-        }
-      }));
-
+    } catch (error) {
+      console.error('SSH Connection error:', error);
       return {
-        success: true,
-        message: `Connected to ${host} as ${username}`,
-        initialOutput: result.output
+        success: false,
+        error: error.message || 'Failed to connect'
       };
     }
-
-    return result;
   };
 
   const disconnectSSH = async (terminalId) => {
