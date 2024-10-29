@@ -1,310 +1,64 @@
-const express = require('express');
-const cors = require('cors');
-const { Client } = require('ssh2');
+require('dotenv').config();
 const WebSocket = require('ws');
-const http = require('http');
-const Convert = require('ansi-to-html');
-const { createProxyMiddleware } = require('http-proxy-middleware');
-const net = require('net');
+const { Client } = require('ssh2');
 
-const app = express();
-const server = http.createServer(app);
+const wss = new WebSocket.Server({ port: process.env.PORT || 8080 });
 
-// Create WebSocket server with path
-const wss = new WebSocket.Server({ 
-  server,
-  path: '/ws'  // Add path for WebSocket connections
-});
-
-// Use port 8080 in production (Digital Ocean's default)
-const port = process.env.PORT || 8080;
-
-// Proxy all non-websocket requests to Next.js
-app.use('/', createProxyMiddleware({
-  target: 'http://localhost:3000',
-  changeOrigin: true,
-  ws: false // Don't proxy WebSocket connections
-}));
-
-// Add a health check endpoint
-app.get('/health', (req, res) => {
-  res.status(200).send('OK');
-});
-
-// Initialize ANSI converter
-const convert = new Convert({
-  fg: '#FFF',
-  bg: '#000',
-  newline: true,
-  escapeXML: true,
-  stream: true
-});
-
-// Store SSH connections and their shells
-const connections = new Map();
-const shells = new Map();
-const wsConnections = new Map();
-
-app.use(cors());
-app.use(express.json());
-
-// WebSocket connection handler
 wss.on('connection', (ws) => {
-  const wsId = Date.now().toString();
-  wsConnections.set(wsId, ws);
+  let sshClient = new Client();
+  let sshStream;
 
-  // Add ping interval
-  const pingInterval = setInterval(() => {
-    if (ws.readyState === WebSocket.OPEN) {
-      ws.ping();
-    }
-  }, 30000); // Send ping every 30 seconds
-
-  ws.on('message', async (message) => {
+  ws.on('message', (message) => {
     const data = JSON.parse(message);
-    const { type, connectionId, command } = data;
 
-    switch (type) {
-      case 'CONNECT':
-        handleSSHConnect(ws, data);
-        break;
-      case 'COMMAND':
-        handleSSHCommand(ws, connectionId, command);
-        break;
-      case 'DISCONNECT':
-        handleSSHDisconnect(ws, connectionId);
-        break;
+    if (data.type === 'connect') {
+      sshClient.on('ready', () => {
+        console.log('SSH Client :: ready');
+
+        sshClient.shell((err, stream) => {
+          if (err) {
+            ws.send(JSON.stringify({ type: 'error', message: err.message }));
+            sshClient.end();
+            return;
+          }
+
+          sshStream = stream;
+
+          // Forward data from SSH to WebSocket
+          sshStream.on('data', (chunk) => {
+            ws.send(JSON.stringify({ type: 'data', data: chunk.toString('utf-8') }));
+          });
+
+          // Handle SSH stream close
+          sshStream.on('close', () => {
+            sshClient.end();
+            ws.close();
+          });
+
+          // Forward data from WebSocket to SSH
+          ws.on('message', (msg) => {
+            const input = JSON.parse(msg);
+            if (input.type === 'command') {
+              sshStream.write(input.command);
+            }
+          });
+        });
+      }).connect({
+        host: data.host,
+        port: data.port || 22,
+        username: data.username,
+        password: data.password, // Or use privateKey and passphrase
+      });
+
+      sshClient.on('error', (err) => {
+        ws.send(JSON.stringify({ type: 'error', message: err.message }));
+      });
     }
   });
 
   ws.on('close', () => {
-    clearInterval(pingInterval); // Clean up ping interval
-    wsConnections.delete(wsId);
-  });
-
-  ws.on('pong', () => {
-    // Optional: log or handle pong responses
-    console.log('Received pong from client');
+    if (sshClient) sshClient.end();
   });
 });
 
-async function handleSSHConnect(ws, data) {
-  const { host, username, password, port = 22 } = data;
-  try {
-    console.log(`Attempting SSH connection to ${host}:${port} as ${username}`);
-    
-    // Try both port 22 and 443
-    let testSocket;
-    let successfulPort;
-    
-    for (const testPort of [port, 443]) {
-      testSocket = new net.Socket();
-      try {
-        await new Promise((resolve, reject) => {
-          const timeout = setTimeout(() => {
-            testSocket.destroy();
-            reject(new Error(`Connection test timeout to ${host}:${testPort}`));
-          }, 5000);
-
-          testSocket.connect(testPort, host, () => {
-            clearTimeout(timeout);
-            testSocket.destroy();
-            successfulPort = testPort;
-            resolve();
-          });
-
-          testSocket.on('error', (err) => {
-            clearTimeout(timeout);
-            reject(err);
-          });
-        });
-        
-        // If we get here, connection was successful
-        console.log(`Network connection test successful to ${host}:${successfulPort}`);
-        break;
-      } catch (err) {
-        console.log(`Connection failed on port ${testPort}:`, err.message);
-        continue;
-      }
-    }
-
-    if (!successfulPort) {
-      throw new Error('Could not connect on any available port');
-    }
-    
-    const conn = new Client();
-    const connectionId = Date.now().toString();
-
-    // Add error handler for the SSH connection
-    conn.on('error', (err) => {
-      console.error('SSH Connection error:', err);
-      ws.send(JSON.stringify({
-        type: 'ERROR',
-        error: err.message
-      }));
-    });
-
-    conn.on('ready', () => {
-      console.log(`SSH Connection established to ${host}`);
-      conn.shell({
-        term: 'xterm-256color',
-        rows: 30,
-        cols: 80,
-      }, (err, stream) => {
-        if (err) {
-          console.error('Shell error:', err);
-          ws.send(JSON.stringify({
-            type: 'ERROR',
-            error: err.message
-          }));
-          return;
-        }
-
-        connections.set(connectionId, conn);
-        shells.set(connectionId, stream);
-
-        let initialOutput = '';
-        let initialTimeout;
-
-        // Handle initial shell data
-        const initialDataHandler = (data) => {
-          initialOutput += data.toString();
-          
-          // Clear existing timeout
-          if (initialTimeout) clearTimeout(initialTimeout);
-          
-          // Set new timeout to wait for complete initial output
-          initialTimeout = setTimeout(() => {
-            stream.removeListener('data', initialDataHandler);
-            
-            // Send initial welcome message
-            if (initialOutput.trim()) {
-              ws.send(JSON.stringify({
-                type: 'OUTPUT',
-                connectionId,
-                output: convert.toHtml(initialOutput),
-                isHtml: true
-              }));
-            }
-            
-            // Set up regular data handler
-            stream.on('data', (data) => {
-              const output = data.toString();
-              if (output.trim()) {
-                ws.send(JSON.stringify({
-                  type: 'OUTPUT',
-                  connectionId,
-                  output: convert.toHtml(output),
-                  isHtml: true
-                }));
-              }
-            });
-          }, 500); // Wait 500ms for complete initial output
-        };
-
-        stream.on('data', initialDataHandler);
-
-        stream.stderr.on('data', (data) => {
-          const errorOutput = convert.toHtml(data.toString());
-          ws.send(JSON.stringify({
-            type: 'OUTPUT',
-            connectionId,
-            output: errorOutput,
-            isHtml: true
-          }));
-        });
-
-        stream.on('close', () => {
-          handleSSHDisconnect(ws, connectionId);
-        });
-
-        // Send connection success message
-        ws.send(JSON.stringify({
-          type: 'CONNECTED',
-          connectionId,
-          message: `Connected to ${host} as ${username}`
-        }));
-      });
-    });
-
-    conn.connect({
-      host,
-      port: successfulPort,  // Use the successful port
-      username,
-      password,
-      readyTimeout: 20000,
-      keepaliveInterval: 10000,
-      keepaliveCountMax: 3,
-      debug: (msg) => console.log('SSH Debug:', msg),
-      algorithms: {
-        kex: [
-          'ecdh-sha2-nistp256',
-          'ecdh-sha2-nistp384',
-          'ecdh-sha2-nistp521',
-          'diffie-hellman-group-exchange-sha256',
-          'diffie-hellman-group14-sha1'
-        ],
-        cipher: [
-          'aes128-ctr',
-          'aes192-ctr',
-          'aes256-ctr',
-          'aes128-gcm',
-          'aes256-gcm'
-        ]
-      }
-    });
-
-  } catch (error) {
-    console.error('SSH Connect error:', error);
-    ws.send(JSON.stringify({
-      type: 'ERROR',
-      error: error.message
-    }));
-  }
-}
-
-function handleSSHCommand(ws, connectionId, command) {
-  const shell = shells.get(connectionId);
-  if (!shell) {
-    ws.send(JSON.stringify({
-      type: 'ERROR',
-      error: 'No active SSH connection found'
-    }));
-    return;
-  }
-
-  // Send the command
-  shell.write(`${command}\n`);
-}
-
-function handleSSHDisconnect(ws, connectionId) {
-  const conn = connections.get(connectionId);
-  const shell = shells.get(connectionId);
-
-  if (shell) {
-    shell.end('exit\n');
-    shells.delete(connectionId);
-  }
-
-  if (conn) {
-    conn.end();
-    connections.delete(connectionId);
-  }
-
-  ws.send(JSON.stringify({
-    type: 'DISCONNECTED',
-    connectionId,
-    message: 'SSH connection closed'
-  }));
-}
-
-// Add error handler for the WebSocket server
-wss.on('error', (error) => {
-  console.error('WebSocket Server Error:', error);
-});
-
-server.listen(port, '0.0.0.0', () => {
-  console.log(`SSH backend service running on port ${port}`);
-  console.log(`Environment: ${process.env.NODE_ENV}`);
-  console.log(`Server address: ${server.address().address}:${server.address().port}`);
-});
+console.log(`WebSocket server is running on port ${process.env.PORT || 8080}`); 

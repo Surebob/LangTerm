@@ -1,0 +1,14 @@
+{
+  "name": "langterm-backend",
+  "version": "0.1.0",
+  "private": true,
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "dotenv": "^10.0.0",
+    "ssh2": "^1.16.0",
+    "ws": "^8.8.0"
+  }
+} 
