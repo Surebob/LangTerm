@@ -1,9 +1,15 @@
 "use client";
 
-import React, { useContext, useState, useRef } from "react";
+import React, { useContext, useState, useRef, useEffect } from "react";
 import { ResizableBox } from "react-resizable";
 import { TerminalContext } from "../context/TerminalContext";
+import { XTerm } from 'react-xtermjs';
+import { FitAddon } from '@xterm/addon-fit';
+import { WebLinksAddon } from '@xterm/addon-web-links';
+import { SearchAddon } from '@xterm/addon-search';
+import { Unicode11Addon } from '@xterm/addon-unicode11';
 import "react-resizable/css/styles.css";
+import '@xterm/xterm/css/xterm.css';
 
 const TerminalWindow = () => {
   const {
@@ -15,6 +21,8 @@ const TerminalWindow = () => {
     updateTerminalPosition,
     updateTerminalSize,
     bringToFront,
+    sshConnections,
+    handleSSHCommand,
   } = useContext(TerminalContext);
 
   const [editingTerminalId, setEditingTerminalId] = useState(null);
@@ -22,6 +30,24 @@ const TerminalWindow = () => {
   const dragRefs = useRef({});
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+  const terminalRefs = useRef({});
+
+  // Terminal initialization
+  useEffect(() => {
+    terminals.forEach(terminal => {
+      if (!terminalRefs.current[terminal.id]) {
+        const fitAddon = new FitAddon();
+        const searchAddon = new SearchAddon();
+        const webLinksAddon = new WebLinksAddon();
+        const unicode11Addon = new Unicode11Addon();
+
+        terminalRefs.current[terminal.id] = {
+          addons: [fitAddon, searchAddon, webLinksAddon, unicode11Addon],
+          fitAddon
+        };
+      }
+    });
+  }, [terminals]);
 
   const handleNameClick = (id, currentName) => {
     setEditingTerminalId(id);
@@ -115,6 +141,11 @@ const TerminalWindow = () => {
                 width: data.size.width / zoomLevel,
                 height: data.size.height / zoomLevel,
               });
+              // Fit terminal to new size
+              const ref = terminalRefs.current[terminal.id];
+              if (ref?.fitAddon) {
+                ref.fitAddon.fit();
+              }
             }}
             style={{ zIndex: terminal.zIndex }}
             className={`terminal-window ${terminal.isMinimized ? "invisible" : ""}`}
@@ -178,14 +209,33 @@ const TerminalWindow = () => {
                 </div>
               </div>
 
-              {/* Terminal Body - Placeholder for xterm.js */}
-              <div
-                id={`terminal-${terminal.id}`}
-                className="flex-1 bg-transparent"
-                style={{ 
-                  height: `calc(100% - ${40 * zoomLevel}px)`
-                }}
-              />
+              {/* Terminal Body */}
+              <div className="flex-1 bg-transparent">
+                <XTerm
+                  className="h-full"
+                  addons={terminalRefs.current[terminal.id]?.addons || []}
+                  options={{
+                    theme: {
+                      background: 'transparent',
+                      foreground: '#00ff00',
+                      cursor: '#00ff00',
+                      cursorAccent: '#00ff00',
+                      selection: 'rgba(255, 255, 255, 0.3)',
+                    },
+                    fontFamily: 'Ubuntu Mono, monospace',
+                    fontSize: 14 * zoomLevel,
+                    cursorBlink: true,
+                    cursorStyle: 'block',
+                    allowTransparency: true,
+                    scrollback: 10000,
+                  }}
+                  onData={(data) => {
+                    if (sshConnections[terminal.id]) {
+                      handleSSHCommand(terminal.id, data);
+                    }
+                  }}
+                />
+              </div>
             </div>
           </ResizableBox>
         </div>
