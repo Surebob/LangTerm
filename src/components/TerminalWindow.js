@@ -231,9 +231,34 @@ const TerminalWindow = () => {
           fontFamily: 'Ubuntu Mono, monospace',
           fontSize: 14,
           theme: {
-            background: '#1a1a1a',
-            foreground: '#ffffff'
-          }
+            background: 'transparent',
+            foreground: '#00ff00',
+            cursor: '#00ff00',
+            cursorAccent: '#00ff00',
+            selection: 'rgba(255, 255, 255, 0.3)',
+            black: '#000000',
+            red: '#cc0000',
+            green: '#4e9a06',
+            yellow: '#c4a000',
+            blue: '#3465a4',
+            magenta: '#75507b',
+            cyan: '#06989a',
+            white: '#d3d7cf',
+            brightBlack: '#555753',
+            brightRed: '#ef2929',
+            brightGreen: '#8ae234',
+            brightYellow: '#fce94f',
+            brightBlue: '#729fcf',
+            brightMagenta: '#ad7fa8',
+            brightCyan: '#34e2e2',
+            brightWhite: '#eeeeec'
+          },
+          cursorBlink: true,
+          cursorStyle: 'block',
+          allowTransparency: true,
+          scrollback: 10000,
+          cols: 100,
+          rows: 24
         });
 
         const fitAddon = new FitAddon();
@@ -242,36 +267,89 @@ const TerminalWindow = () => {
 
         const terminalElement = document.getElementById(`terminal-${terminal.id}`);
         if (terminalElement) {
+          // Clear existing content
+          terminalElement.innerHTML = '';
+          
+          // Set up terminal container
+          terminalElement.style.padding = '12px';
+          terminalElement.style.height = '100%';
+          terminalElement.style.width = '100%';
+          terminalElement.style.overflow = 'hidden';
+          
+          // Open terminal
           term.open(terminalElement);
           fitAddon.fit();
-          terminalRefs.current[terminal.id] = term;
 
           // Write ASCII art
-          term.writeln(asciiArt);
+          term.writeln('');
+          asciiArt.split('\n').forEach(line => {
+            term.writeln(line);
+          });
+          term.writeln('');
+
+          // Handle terminal input
+          term.onData(data => {
+            if (sshConnections[terminal.id]) {
+              // If SSH connected, send data directly
+              handleSSHCommand(terminal.id, data);
+            } else {
+              // Otherwise, build up command buffer
+              const currentInput = getCurrentInput(terminal.id);
+              if (data === '\r') { // Enter key
+                handleCommandSubmit(terminal.id);
+              } else if (data === '\u007f') { // Backspace
+                if (currentInput.length > 0) {
+                  setCurrentInput(terminal.id, currentInput.slice(0, -1));
+                  term.write('\b \b');
+                }
+              } else {
+                setCurrentInput(terminal.id, currentInput + data);
+                term.write(data);
+              }
+            }
+          });
+
+          // Store terminal reference
+          terminalRefs.current[terminal.id] = {
+            terminal: term,
+            fitAddon: fitAddon
+          };
         }
       }
     });
+
+    // Handle window resize
+    const handleResize = () => {
+      terminals.forEach(terminal => {
+        const ref = terminalRefs.current[terminal.id];
+        if (ref?.fitAddon) {
+          ref.fitAddon.fit();
+        }
+      });
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
   }, [terminals]);
 
   const handleCommandSubmit = async (id) => {
-    const term = terminalRefs.current[id];
-    if (!term) return;
+    const termRef = terminalRefs.current[id];
+    if (!termRef) return;
 
+    const term = termRef.terminal;
     const currentInput = getCurrentInput(id);
-    const terminal = terminals.find(t => t.id === id);
-    if (!terminal) return;
     
     try {
       if (isPasswordMode[id]) {
         const command = passwordInput[id];
         setIsPasswordMode(prev => ({ ...prev, [id]: false }));
         
-        term.writeln('Connecting...');
+        term.writeln('\r\nConnecting...');
         
         const result = await connectSSH(id, command, currentInput);
         
         if (result.success) {
-          term.write(result.message + '\r\n');
+          term.writeln(result.message);
           if (result.initialOutput) {
             term.write(result.initialOutput);
           }
@@ -332,6 +410,11 @@ const TerminalWindow = () => {
                 width: data.size.width / zoomLevel,
                 height: data.size.height / zoomLevel,
               });
+              // Fit terminal to new size
+              const ref = terminalRefs.current[terminal.id];
+              if (ref?.fitAddon) {
+                ref.fitAddon.fit();
+              }
             }}
             style={{ zIndex: terminal.zIndex }}
             className={`terminal-window ${terminal.isMinimized ? "invisible" : ""}`}
