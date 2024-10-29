@@ -13,19 +13,32 @@ class SSHService {
     if (this.ws) return;
 
     const isProd = window.location.hostname === 'langterm.ai';
+    
     this.baseUrl = isProd
-      ? 'wss://your-backend-domain-or-ip:port/ws'
+      ? 'wss://backend.langterm.ai/ws'
       : 'ws://localhost:8080';
 
-    this.connect();
+    // Get the session token from Supabase
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!session) {
+        console.error('No active session');
+        return;
+      }
+
+      const headers = {
+        'Authorization': `Bearer ${session.access_token}`
+      };
+
+      this.connect(headers);
+    });
   }
 
-  connect() {
+  connect(headers = {}) {
     try {
       if (typeof window === 'undefined') return;
 
       console.log('Attempting WebSocket connection to:', this.baseUrl);
-      this.ws = new WebSocket(this.baseUrl);
+      this.ws = new WebSocket(this.baseUrl, [], { headers });
       
       this.ws.onopen = () => {
         console.log('WebSocket connected successfully');
@@ -39,7 +52,7 @@ class SSHService {
           clearInterval(this.pingInterval);
         }
         // Add delay before reconnect
-        setTimeout(() => this.connect(), 2000);
+        setTimeout(() => this.connect(headers), 2000);
       };
 
       this.ws.onerror = (error) => {
@@ -95,22 +108,25 @@ class SSHService {
           port
         }));
 
-        const messageHandler = (event) => {
-          const data = JSON.parse(event.data);
+        const messageHandler = (data) => {
           if (data.type === 'CONNECTED') {
-            this.ws.removeEventListener('message', messageHandler);
-            resolve(data);
+            this.messageHandlers.delete('temp');
+            resolve({
+              success: true,
+              connectionId: data.connectionId,
+              message: data.message
+            });
           } else if (data.type === 'ERROR') {
-            this.ws.removeEventListener('message', messageHandler);
+            this.messageHandlers.delete('temp');
             reject(new Error(data.error));
           }
         };
 
-        this.ws.addEventListener('message', messageHandler);
+        this.messageHandlers.set('temp', messageHandler);
 
         // Increase timeout to 30 seconds
         setTimeout(() => {
-          this.ws.removeEventListener('message', messageHandler);
+          this.messageHandlers.delete('temp');
           reject(new Error('SSH connection timeout'));
         }, 30000);
 
