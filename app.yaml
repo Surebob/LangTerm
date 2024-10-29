@@ -6,6 +6,13 @@ services:
     deploy_on_push: true
   build_command: npm run build
   run_command: npm start
+  health_check:
+    http_path: /api/health
+    initial_delay_seconds: 10
+    period_seconds: 10
+    timeout_seconds: 5
+    success_threshold: 1
+    failure_threshold: 3
   envs:
     - key: NEXT_PUBLIC_BACKEND_URL
       value: ${_self.BACKEND_URL}
