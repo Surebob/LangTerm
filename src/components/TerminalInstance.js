@@ -122,20 +122,17 @@ const TerminalInstance = ({
         term.onData(data => {
           if (isPasswordMode[terminal.id]) {
             if (data === '\r') {
-              console.log('Enter key pressed, current password length:', passwordRef.current.length);
               term.write('\r\n');
               handleSSHLogin();
             } else if (data === '\u007f') { // Handle backspace
               if (passwordRef.current.length > 0) {
                 passwordRef.current = passwordRef.current.slice(0, -1);
                 setPassword(passwordRef.current); // Keep state in sync for UI updates
-                console.log('Backspace pressed, new password length:', passwordRef.current.length);
                 term.write('\b \b');
               }
             } else {
               passwordRef.current = passwordRef.current + data;
               setPassword(passwordRef.current); // Keep state in sync for UI updates
-              console.log('Character entered, new password length:', passwordRef.current.length);
               term.write('*');
             }
           } else {

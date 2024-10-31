@@ -37,6 +37,7 @@ export const TerminalProvider = ({ children }) => {
 
   // Session management
   useEffect(() => {
+    
     const checkSession = async () => {
       const { data: { session }, error } = await supabase.auth.getSession();
       if (!error && session) {
@@ -252,52 +253,59 @@ export const TerminalProvider = ({ children }) => {
     return result;
   };
 
+  const enablePasswordMode = (terminalId) => {
+    setIsPasswordMode(prev => ({
+      ...prev,
+      [terminalId]: true
+    }));
+  };
+  
+  const disablePasswordMode = (terminalId) => {
+    setIsPasswordMode(prev => ({
+      ...prev,
+      [terminalId]: false
+    }));
+  };
+
   const connectSSH = async (terminalId, storedCommand, password) => {
     try {
-      // Parse the SSH command
-      const match = storedCommand.match(/ssh\s+(\w+)@([\w.-]+)(?:\s+-p\s+(\d+))?/);
-      if (!match) {
-        return {
-          success: false,
-          error: 'Invalid SSH command. Use format: ssh user@host [-p port]'
-        };
-      }
-
-      const [, username, host, port] = match;
-      console.log('Attempting SSH connection:', { username, host, port, hasPassword: !!password }); // Log for debugging
-
-      // Connect using SSHService with the password
-      const result = await sshService.connectSSH(host, username, password, port || 22);
-      
-      if (result.connectionId) {
-        // Store the successful connection
-        setSSHConnections(prev => ({
-          ...prev,
-          [terminalId]: {
-            connectionId: result.connectionId,
-            host,
-            username
-          }
-        }));
-
-        return {
-          success: true,
-          message: result.message,
-          initialOutput: result.output
-        };
-      }
-
-      return {
-        success: false,
-        error: 'Failed to establish SSH connection'
-      };
-
+        const match = storedCommand.match(/ssh\s+(\w+)@([\w.-]+)(?:\s+-p\s+(\d+))?/);
+        if (!match) {
+            return { success: false, error: 'Invalid SSH command. Use format: ssh user@host [-p port]' };
+        }
+  
+        const [, username, host, port] = match;
+        const result = await sshService.connectSSH(host, username, password, port || 22);
+  
+        if (result.connectionId) {
+            setSSHConnections(prev => ({
+                ...prev,
+                [terminalId]: { connectionId: result.connectionId, host, username }
+            }));
+  
+            // Disable password mode immediately after successful connection
+            disablePasswordMode(terminalId);
+  
+            // Save SSH session to Supabase
+            if (user) {
+                await supabase.from('ssh_sessions').upsert({
+                    user_id: user.id,
+                    terminal_id: terminalId,
+                    host,
+                    username,
+                    port: port || 22,
+                    last_connected: new Date()
+                });
+            }
+  
+            return { success: true, message: result.message, initialOutput: result.output };
+        }
+  
+        return { success: false, error: 'Failed to establish SSH connection' };
+  
     } catch (error) {
-      console.error('SSH Connection error:', error);
-      return {
-        success: false,
-        error: error.message || 'Authentication failed. Please check your credentials.'
-      };
+        console.error('SSH Connection error:', error);
+        return { success: false, error: error.message || 'Authentication failed. Please check your credentials.' };
     }
   };
 
@@ -343,6 +351,8 @@ export const TerminalProvider = ({ children }) => {
         setPasswordInput,
         isPasswordMode,
         setIsPasswordMode,
+        enablePasswordMode,
+        disablePasswordMode,
       }}
     >
       {children}
