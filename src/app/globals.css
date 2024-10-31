@@ -464,4 +464,54 @@ html, body {
   color: hsl(0 0% 100%); /* White text */
 }
 
-/* Rest of your globals.css remains the same */
+/* Override xterm.js viewport background */
+.xterm .xterm-viewport {
+  background-color: transparent !important;
+}
+
+.xterm-screen {
+  background-color: transparent !important;
+}
+
+/* Ensure all xterm layers are transparent */
+.xterm-decoration-overview-ruler {
+  background-color: transparent !important;
+}
+
+.xterm-decoration-container {
+  background-color: transparent !important;
+}
+
+/* Add these specific xterm.js overrides */
+.xterm .xterm-viewport {
+  background-color: transparent !important;
+}
+
+.xterm-screen {
+  background-color: transparent !important;
+}
+
+.xterm-decoration-overview-ruler {
+  background-color: transparent !important;
+}
+
+.xterm-decoration-container {
+  background-color: transparent !important;
+}
+
+/* Additional xterm layers that might need transparency */
+.xterm .xterm-scroll-area {
+  background-color: transparent !important;
+}
+
+.xterm .composition-view {
+  background-color: transparent !important;
+}
+
+.xterm .xterm-helpers {
+  background-color: transparent !important;
+}
+
+.xterm .xterm-char-measure-element {
+  background-color: transparent !important;
+}

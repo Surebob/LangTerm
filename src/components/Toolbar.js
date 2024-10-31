@@ -299,29 +299,26 @@ const Toolbar = () => {
                     <li
                       onClick={async () => {
                         const terminalId = addTerminal();
-                        // Don't show the command in the terminal yet
-                        addCommandToTerminal(
-                          terminalId,
-                          "",  // Empty command
-                          "Enter password:",
-                          false
-                        );
-                        // Store the SSH command and set password mode
-                        setPasswordInput(prev => ({
+                        // Show 'Enter password:' prompt in the terminal
+                        addCommandToTerminal(terminalId, "", "Enter password:", false);
+
+                        // Store the SSH command and activate password mode
+                        setPasswordInput((prev) => ({
                           ...prev,
-                          [terminalId]: "ssh root@loadguard.ai"
+                          [terminalId]: "ssh root@67.207.88.232", // Replace with your SSH command
                         }));
-                        setIsPasswordMode(prev => ({
+                        setIsPasswordMode((prev) => ({
                           ...prev,
-                          [terminalId]: true
+                          [terminalId]: true,
                         }));
+
                         setIsMenuOpen(false);
                         setOpenSubmenu(null);
                       }}
                       className="flex items-center px-4 py-2 hover:bg-white/10 cursor-pointer transition-colors duration-200"
                     >
                       <Code2 size={16} className="mr-2" />
-                      root@loadguard.ai
+                      root@67.207.88.232
                     </li>
                   </ul>
                 )}

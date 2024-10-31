@@ -269,43 +269,30 @@ export const TerminalProvider = ({ children }) => {
 
   const connectSSH = async (terminalId, storedCommand, password) => {
     try {
-        const match = storedCommand.match(/ssh\s+(\w+)@([\w.-]+)(?:\s+-p\s+(\d+))?/);
-        if (!match) {
-            return { success: false, error: 'Invalid SSH command. Use format: ssh user@host [-p port]' };
-        }
-  
-        const [, username, host, port] = match;
-        const result = await sshService.connectSSH(host, username, password, port || 22);
-  
-        if (result.connectionId) {
-            setSSHConnections(prev => ({
-                ...prev,
-                [terminalId]: { connectionId: result.connectionId, host, username }
-            }));
-  
-            // Disable password mode immediately after successful connection
-            disablePasswordMode(terminalId);
-  
-            // Save SSH session to Supabase
-            if (user) {
-                await supabase.from('ssh_sessions').upsert({
-                    user_id: user.id,
-                    terminal_id: terminalId,
-                    host,
-                    username,
-                    port: port || 22,
-                    last_connected: new Date()
-                });
-            }
-  
-            return { success: true, message: result.message, initialOutput: result.output };
-        }
-  
-        return { success: false, error: 'Failed to establish SSH connection' };
-  
+      // Pass the full command to SSHService
+      const result = await sshService.connectSSH(storedCommand, password);
+      
+      if (result.success) {
+        setSSHConnections(prev => ({
+          ...prev,
+          [terminalId]: {
+            connectionId: result.connectionId,
+            host: result.host,
+            username: result.username
+          }
+        }));
+
+        // Disable password mode immediately after successful connection
+        disablePasswordMode(terminalId);
+
+        return { success: true, message: result.message, initialOutput: result.output };
+      }
+
+      return { success: false, error: result.error };
+
     } catch (error) {
-        console.error('SSH Connection error:', error);
-        return { success: false, error: error.message || 'Authentication failed. Please check your credentials.' };
+      console.error('SSH Connection error:', error);
+      return { success: false, error: error.message };
     }
   };
 

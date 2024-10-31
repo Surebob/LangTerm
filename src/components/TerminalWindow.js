@@ -16,6 +16,13 @@ const TerminalWindow = () => {
     updateTerminalSize,
     updateTerminalName,
     bringToFront,
+    sshConnections,
+    handleSSHCommand,
+    isPasswordMode,
+    passwordInput,
+    setIsPasswordMode,
+    setPasswordInput,
+    connectSSH,
   } = useContext(TerminalContext);
 
   const [editingTerminalId, setEditingTerminalId] = useState(null);
@@ -23,6 +30,7 @@ const TerminalWindow = () => {
   const dragRefs = useRef({});
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+  const [currentInput, setCurrentInput] = useState({});
 
   const handleNameClick = (id, currentName) => {
     setEditingTerminalId(id);

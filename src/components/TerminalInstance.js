@@ -4,6 +4,17 @@ import { ResizableBox } from "react-resizable";
 import "xterm/css/xterm.css";
 import { TerminalContext } from "../context/TerminalContext";
 
+// Add these constants at the top of the file, after imports
+const BASE_CHAR_WIDTH = 9;  // Base width of a character in pixels
+const BASE_CHAR_HEIGHT = 17; // Base height of a character in pixels
+
+// Font metrics for precise calculations (based on Ubuntu Mono at 16px)
+const FONT_CONFIG = {
+  charWidth: 9,    // Width of a single character
+  charHeight: 17,  // Height of a single character including line spacing
+  lineHeight: 1.2  // Line height multiplier
+};
+
 // TerminalInstance component definition
 const TerminalInstance = ({
   terminal,
@@ -42,10 +53,9 @@ const TerminalInstance = ({
 
   // Move handleSSHLogin outside of useEffect and make it a useCallback
   const handleSSHLogin = React.useCallback(async () => {
-    const currentPassword = passwordRef.current; // Use the ref instead of state
-    console.log('Handling SSH login with password length:', currentPassword?.length || 0);
-    
+    const currentPassword = passwordRef.current;
     const storedCommand = passwordInput[terminal.id];
+    
     if (!storedCommand) {
       console.log('No stored command found for terminal:', terminal.id);
       return;
@@ -55,12 +65,20 @@ const TerminalInstance = ({
       const result = await connectSSH(terminal.id, storedCommand, currentPassword);
       
       if (result.success) {
-        termRef.current.writeln('\r\nConnected successfully!');
+        // Clear password mode
+        setIsPasswordMode(prev => ({ ...prev, [terminal.id]: false }));
+        setPasswordInput(prev => {
+          const newState = { ...prev };
+          delete newState[terminal.id];
+          return newState;
+        });
+
+        // Write welcome message
         if (result.initialOutput) {
-          termRef.current.writeln(result.initialOutput);
+          termRef.current.write(result.initialOutput);
         }
-        termRef.current.write('\r\n$ ');
       } else {
+        // Keep password mode and show error
         termRef.current.writeln(`\r\nConnection failed: ${result.error}`);
         termRef.current.write('\r\nEnter password: ');
       }
@@ -70,16 +88,9 @@ const TerminalInstance = ({
       termRef.current.write('\r\nEnter password: ');
     }
 
-    // Clear password only after connection attempt is complete
+    // Clear password
     passwordRef.current = '';
     setPassword('');
-    
-    setIsPasswordMode(prev => ({ ...prev, [terminal.id]: false }));
-    setPasswordInput(prev => {
-      const newState = { ...prev };
-      delete newState[terminal.id];
-      return newState;
-    });
   }, [terminal.id, passwordInput, connectSSH, setIsPasswordMode, setPasswordInput]);
 
   useEffect(() => {
@@ -97,12 +108,37 @@ const TerminalInstance = ({
   
       term = new Terminal({
         cursorBlink: true,
-        fontSize: 16,
-        fontFamily: 'Menlo, Monaco, "Courier New", monospace',
+        fontSize: 16 * zoomLevel,  // Scale font size with zoom
+        fontFamily: '"Ubuntu Mono", monospace',
+        lineHeight: 1.3,
         theme: {
-          background: '#000000',
-          foreground: '#ffffff',
-        }
+          background: 'transparent',
+          foreground: '#33ff33',
+          cursor: '#33ff33',
+          cursorAccent: '#000000',
+          selection: 'rgba(255, 255, 255, 0.3)',
+          black: '#000000',
+          red: '#cc0000',
+          green: '#4e9a06',
+          yellow: '#c4a000',
+          blue: '#3465a4',
+          magenta: '#75507b',
+          cyan: '#06989a',
+          white: '#d3d7cf',
+          brightBlack: '#555753',
+          brightRed: '#ef2929',
+          brightGreen: '#8ae234',
+          brightYellow: '#fce94f',
+          brightBlue: '#729fcf',
+          brightMagenta: '#ad7fa8',
+          brightCyan: '#34e2e2',
+          brightWhite: '#eeeeec'
+        },
+        allowTransparency: true,
+        rendererType: 'canvas',
+        scrollback: 1000,
+        cols: Math.floor((terminal.size.width * zoomLevel) / BASE_CHAR_WIDTH),
+        rows: Math.floor((terminal.size.height * zoomLevel) / BASE_CHAR_HEIGHT),
       });
       
       fitAddon = new FitAddon();
@@ -170,15 +206,21 @@ const TerminalInstance = ({
     };
   }, [terminal.id, isPasswordMode, handleSSHCommand, passwordInput, handleSSHLogin]);
 
+  // Add zoom effect handler
   useEffect(() => {
-    fitAddonRef.current?.fit();
-  }, [zoomLevel, terminal.size]);
+    if (termRef.current) {
+      termRef.current.options.fontSize = 16 * zoomLevel;
+      fitAddonRef.current?.fit();
+    }
+  }, [zoomLevel]);
 
   const handleResizeStop = (e, data) => {
-    updateTerminalSize(terminal.id, {
+    const newSize = {
       width: data.size.width / zoomLevel,
       height: data.size.height / zoomLevel,
-    });
+    };
+    
+    updateTerminalSize(terminal.id, newSize);
     fitAddonRef.current?.fit();
   };
 
@@ -211,7 +253,15 @@ const TerminalInstance = ({
         height={terminal.size.height * zoomLevel}
         minConstraints={[300 * zoomLevel, 200 * zoomLevel]}
         maxConstraints={[800 * zoomLevel, 600 * zoomLevel]}
-        onResizeStop={handleResizeStop}
+        onResize={(e, data) => {
+          // Update size in state during resize
+          updateTerminalSize(terminal.id, {
+            width: data.size.width / zoomLevel,
+            height: data.size.height / zoomLevel,
+          });
+          // Single fit call
+          fitAddonRef.current?.fit();
+        }}
         style={{ zIndex: terminal.zIndex }}
         className={`terminal-window ${
           terminal.isMinimized ? "invisible" : ""
@@ -282,11 +332,14 @@ const TerminalInstance = ({
           {/* Terminal Body */}
           <div
             ref={terminalDivRef}
-            className="flex-1 bg-black text-white overflow-hidden"
+            className="flex-1 overflow-hidden rounded-b-lg"
             onClick={handleTerminalClick}
             style={{
               height: `calc(100% - ${40 * zoomLevel}px)`,
               fontSize: `${16 * zoomLevel}px`,
+              display: 'flex',
+              flexDirection: 'column',
+              background: 'transparent',
             }}
           />
         </div>

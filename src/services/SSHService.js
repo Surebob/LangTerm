@@ -78,7 +78,7 @@ class SSHService {
     }
   }
 
-  async connectSSH(host, username, password, port = 22) {
+  async connectSSH(command, password, port = 22) {
     if (!this.isConnected || !this.ws) {
       console.log('WebSocket not connected, attempting to reconnect...');
       await new Promise((resolve) => {
@@ -94,18 +94,34 @@ class SSHService {
 
     return new Promise((resolve, reject) => {
       try {
-        console.log('Sending SSH connection request...', { host, username, password, port }); // Log full payload before sending
-        
-        // Send connection request with credentials
-        this.ws.send(JSON.stringify({
-          type: 'CONNECT',
-          payload: {
-            host,
-            username,
-            password,
-            port
+        // Parse the SSH command to extract username and host
+        console.log('Attempting to parse SSH command:', command);
+
+        if (typeof command === 'string' && command.startsWith('ssh ')) {
+          const match = command.match(/ssh\s+([a-zA-Z0-9_-]+)@([a-zA-Z0-9.-]+)(?:\s+-p\s+(\d+))?/);
+          if (!match) {
+            console.error('Invalid SSH command format:', command);
+            reject(new Error('Invalid SSH command format'));
+            return;
           }
-        }));
+
+          const [, username, host, commandPort] = match;
+          console.log('Parsed SSH command:', { username, host, port: commandPort || port });
+
+          this.ws.send(JSON.stringify({
+            type: 'CONNECT',
+            payload: {
+              host,
+              username,
+              password,
+              port: commandPort || port
+            }
+          }));
+        } else {
+          console.error('Command not in SSH format:', command);
+          reject(new Error('Invalid SSH command format'));
+          return;
+        }
 
         const messageHandler = (data) => {
           console.log('Received SSH response:', data);
@@ -115,17 +131,22 @@ class SSHService {
             resolve({
               success: true,
               connectionId: data.connectionId,
-              message: data.message || 'Connected successfully'
+              message: data.message,
+              initialOutput: data.output,
+              host: data.host,
+              username: data.username
             });
           } else if (data.type === 'ERROR') {
             this.messageHandlers.delete('temp');
-            reject(new Error(data.error || 'Authentication failed'));
+            resolve({
+              success: false,
+              error: data.error
+            });
           }
         };
 
         this.messageHandlers.set('temp', messageHandler);
 
-        // Set timeout for connection attempt
         setTimeout(() => {
           this.messageHandlers.delete('temp');
           reject(new Error('SSH connection timeout'));
@@ -139,8 +160,7 @@ class SSHService {
   }
 
   async executeCommand(connectionId, command) {
-    this.initialize(); // Initialize connection if needed
-    if (!this.isConnected) {
+    if (!this.isConnected || !this.ws) {
       return {
         success: false,
         error: 'WebSocket not connected'
@@ -166,7 +186,7 @@ class SSHService {
             output,
             isHtml: true
           });
-        }, 500); // Wait 500ms after last output before resolving
+        }, 100); // Wait 100ms after last output before resolving
       });
 
       this.ws.send(JSON.stringify({
