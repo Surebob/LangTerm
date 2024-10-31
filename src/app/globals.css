@@ -8,6 +8,11 @@
 @import url('https://fonts.googleapis.com/css2?family=Ubuntu+Mono:wght@400;700&display=swap');
 
 
+input:-webkit-autofill { 
+  -webkit-text-fill-color: white !important;
+  -webkit-background-clip: text !important;
+}
+
 /* Login / Signup Page */
 .container {
   width: 400px;
@@ -330,12 +335,12 @@ body {
 
 .login-caret {
   display: inline-block;
-  width: 21px;
-  height: 10px;
+  width: 8px;
+  height: 28px;
   background-color: #59da79;
   animation: blink 1.2s infinite;
   margin-left: 2px;
-  margin-top: 12px;
+  margin-top: 1px;
 }
 
 @keyframes blink {
