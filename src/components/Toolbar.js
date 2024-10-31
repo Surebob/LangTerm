@@ -57,6 +57,7 @@ import {
   DrawerTitle,
   DrawerTrigger,
 } from "@/components/ui/drawer"; // Ensure correct import path
+import { Terminal } from "lucide-react"
 
 const Toolbar = () => {
   const router = useRouter();
@@ -72,6 +73,16 @@ const Toolbar = () => {
     setIsPasswordMode,
     user,
   } = useContext(TerminalContext);
+
+  // State for SSH form data
+  const [sshFormData, setSshFormData] = useState({
+    ssh_username: '',
+    ssh_hostname: '',
+    ssh_port: '',  // optional
+    ssh_password: '',
+    connection_name: '',
+  });
+
 
   const scrollContainerRef = useRef(null);
   const scrollIntervalRef = useRef(null);
@@ -89,6 +100,18 @@ const Toolbar = () => {
   const buttonRef = useRef(null);
   const settingsMenuRef = useRef(null);
   const settingsButtonRef = useRef(null);
+
+  const [savedConnections, setSavedConnections] = useState([]);
+
+  // Handler for input changes
+  const handleSshInputChange = (e) => {
+    const { name, value } = e.target;
+    setSshFormData((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
+  };
+
 
   // Handle logout
   const handleLogout = async () => {
@@ -169,6 +192,28 @@ const Toolbar = () => {
     };
   }, []);
 
+  useEffect(() => {
+    const fetchSavedConnections = async () => {
+      if (user) {
+        try {
+          const { data, error } = await supabase
+            .from('ssh_saved')
+            .select('*')
+            .eq('user_id', user.id);
+  
+          if (error) throw error;
+  
+          setSavedConnections(data);
+        } catch (error) {
+          console.error('Error fetching SSH connections:', error.message);
+          // Handle error (e.g., show an alert)
+        }
+      }
+    };
+  
+    fetchSavedConnections();
+  }, [user]);
+
   const scroll = (direction) => {
     if (scrollContainerRef.current) {
       const scrollAmount = 170; // The width of one terminal item
@@ -219,6 +264,100 @@ const Toolbar = () => {
       return 'none';
     }
   };
+
+  // Refetch saved connections after inserting a new connection
+  const handleConnect = async () => {
+    const terminalId = addTerminal();
+
+    // Construct the SSH command
+    let sshCommand = `ssh ${sshFormData.ssh_username}@${sshFormData.ssh_hostname}`;
+    if (sshFormData.ssh_port) {
+      sshCommand += ` -p ${sshFormData.ssh_port}`;
+    }
+
+    // Start the SSH connection process
+    addCommandToTerminal(
+      terminalId,
+      "",  // Empty command to begin
+      "Enter password:",
+      false
+    );
+
+    // Store the SSH command and set password mode
+    setPasswordInput((prev) => ({
+      ...prev,
+      [terminalId]: sshCommand,
+    }));
+    setIsPasswordMode((prev) => ({
+      ...prev,
+      [terminalId]: true,
+    }));
+
+    try {
+      // Save the SSH connection to Supabase
+      const { error } = await supabase.from('ssh_saved').insert([
+        {
+          user_id: user.id,
+          connection_name: sshFormData.connection_name || `${sshFormData.ssh_username}@${sshFormData.ssh_hostname}`,
+          username: sshFormData.ssh_username,
+          hostname: sshFormData.ssh_hostname,
+          port: sshFormData.ssh_port ? parseInt(sshFormData.ssh_port) : null,
+        },
+      ]);
+
+      if (error) throw error;
+
+      // Refetch all saved connections immediately after insertion
+      const { data: updatedData, error: fetchError } = await supabase
+        .from('ssh_saved')
+        .select('*')
+        .eq('user_id', user.id);
+
+      if (fetchError) throw fetchError;
+
+      setSavedConnections(updatedData); // Update state with the latest data
+
+    } catch (error) {
+      console.error('Error saving or fetching SSH connections:', error.message);
+      // Handle error (e.g., show an alert)
+    }
+
+    // Close the drawer
+    setIsDrawerOpen(false);
+  };
+
+
+  const handleSavedConnectionClick = (connection) => {
+    const terminalId = addTerminal();
+  
+    // Construct the SSH command
+    let sshCommand = `ssh ${connection.username}@${connection.hostname}`;
+    if (connection.port) {
+      sshCommand += ` -p ${connection.port}`;
+    }
+  
+    // Start the SSH connection process
+    addCommandToTerminal(
+      terminalId,
+      "", // Empty command to begin
+      "Enter password:",
+      false
+    );
+  
+    // Store the SSH command and set password mode
+    setPasswordInput((prev) => ({
+      ...prev,
+      [terminalId]: sshCommand,
+    }));
+    setIsPasswordMode((prev) => ({
+      ...prev,
+      [terminalId]: true,
+    }));
+  
+    // Close the drawer
+    setIsDrawerOpen(false);
+  };
+  
 
   // Updated buttonBaseStyles with hover effects
   const buttonBaseStyles = `
@@ -302,15 +441,32 @@ const Toolbar = () => {
                 <div className="terminal-window flex flex-row items-start gap-4 py-4 p-8 ml-8">
                   <div className="flex flex-col items-start gap-4 py-4">
                     <div className="flex flex-col items-start gap-2">
+                      <label className="text-right text-white" htmlFor="connection_name">
+                        Connection Name
+                      </label>
+                      <input
+                        id="connection_name"
+                        name="connection_name"
+                        required
+                        className="col-span-3 bg-transparent border border-white/20 rounded p-2 text-white"
+                        placeholder="My Server"
+                        value={sshFormData.connection_name}
+                        onChange={handleSshInputChange}
+                      />
+                    </div>
+                    <div className="flex flex-col items-start gap-2">
                       <label className="text-right text-white" htmlFor="username">
                         Username
                       </label>
                       <input
-                        id="username"
-                        name="username"
+                        id="ssh_username"
+                        name="ssh_username"
+                        autoComplete="off"
                         className="col-span-3 bg-transparent border border-white/20 rounded p-2 text-white"
                         placeholder="Enter username"
                         required
+                        value={sshFormData.ssh_username}
+                        onChange={handleSshInputChange}
                       />
                     </div>
 
@@ -319,11 +475,14 @@ const Toolbar = () => {
                         Hostname
                       </label>
                       <input
-                        id="hostname"
-                        name="hostname"
+                        id="ssh_hostname"
+                        name="ssh_hostname"
+                        autoComplete="off"
                         className="col-span-3 bg-transparent border border-white/20 rounded p-2 text-white"
                         placeholder="Enter hostname"
                         required
+                        value={sshFormData.ssh_hostname}
+                        onChange={handleSshInputChange}
                       />
                     </div>
                   </div>
@@ -333,26 +492,42 @@ const Toolbar = () => {
                         Port (optional)
                       </label>
                       <input
-                        id="port"
-                        name="port"
+                        id="ssh_port"
+                        name="ssh_port"
+                        autoComplete="off"
                         type="number"
                         className="col-span-3 bg-transparent border border-white/20 rounded p-2 text-white"
                         placeholder="22"
+                        value={sshFormData.ssh_port}
+                        onChange={handleSshInputChange}
                       />
                     </div>
 
                     <div className="flex flex-col items-start gap-2">
                       <label className="text-right text-white" htmlFor="password">
-                        Password
+                        Password (optional)
                       </label>
                       <input
-                        id="password"
-                        name="password"
-                        type="password"
+                        id="ssh_password"
+                        name="ssh_password"
+                        autoComplete="off"
                         className="col-span-3 bg-transparent border border-white/20 rounded p-2 text-white"
                         placeholder="Enter password"
-                        required
+                        value={sshFormData.ssh_password}
+                        onChange={handleSshInputChange}
                       />
+                    </div>
+
+                    <div className="flex flex-col items-start gap-2 w-full">
+                      <label className="text-right text-white" htmlFor="password">
+                      ‎
+                      </label>
+                      <Button
+                        className="hover:bg-green-600 text-white py-2 relative bg-glassmorphism bg-opacity-70 backdrop-blur-lg border border-white/20 rounded-lg shadow-lg w-full"
+                        onClick={handleConnect}
+                      >
+                        Connect
+                      </Button>
                     </div>
                   </div>
                 </div>
@@ -365,12 +540,32 @@ const Toolbar = () => {
                   </div>
                 </DrawerHeader>
                 
-                <div className="bg-glassmorphism flex flex-row items-start gap-4 py-4 p-8">
-
+                {/* Grid Container for Saved Connections */}
+                <div className="mr-8 grid grid-cols-2 gap-4"> {/* Adjust grid-cols-2 as needed */}
+                  {savedConnections.length > 0 ? (
+                    savedConnections.map((connection) => (
+                      <Alert
+                        key={connection.id}
+                        className="cursor-pointer hover:bg-white/10 ssh-window p-4 rounded-lg shadow-lg"
+                        onClick={() => handleSavedConnectionClick(connection)}
+                      >
+                        <div className="flex items-center">
+                          <Terminal className="h-4 w-4 mr-2" />
+                          <AlertTitle>{connection.connection_name}</AlertTitle>
+                        </div>
+                        <AlertDescription className="text-sm text-gray-300">
+                          {`${connection.username}@${connection.hostname}`}
+                        </AlertDescription>
+                      </Alert>
+                    ))
+                  ) : (
+                    <p className="text-gray-400">No saved connections.</p>
+                  )}
                 </div>
               </div>
             </div>
             <DrawerFooter className="flex justify-end mt-6">
+          
             </DrawerFooter>
           </DrawerContent>
         </Drawer>

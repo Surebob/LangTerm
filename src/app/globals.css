@@ -134,6 +134,24 @@ form button:active {
   line-height: 1.5;
 }
 
+.ssh-window {
+  font-family: 'Ubuntu Mono', monospace !important;
+  cursor: pointer; /* Change the cursor to text selection inside the terminal */
+  background-color: var(--terminal-bg); /* Transparent glass effect */
+  backdrop-filter: var(--backdrop-blur); /* Apply blur to terminal */
+  border: 1px solid var(--border-color); /* Light border */
+  border-radius: 12px; /* Rounded corners for modern look */
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.5); /* Soft shadow */
+  transition: transform 0.2s ease;
+}
+
+.ssh-window:hover {
+  background-color: rgb(255 255 255 / 0.1);
+  --tw-scale-x: 0.95;
+  --tw-scale-y: 0.95;
+  transform: translate(var(--tw-translate-x), var(--tw-translate-y)) rotate(var(--tw-rotate)) skewX(var(--tw-skew-x)) skewY(var(--tw-skew-y)) scaleX(var(--tw-scale-x)) scaleY(var(--tw-scale-y));
+}
+
 /* Glassmorphism for Taskbar */
 .taskbar {
   background-color: rgba(34, 34, 34, 0.2); /* Semi-transparent glass effect */
