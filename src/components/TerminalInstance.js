@@ -65,7 +65,7 @@ const TerminalInstance = ({
       const result = await connectSSH(terminal.id, storedCommand, currentPassword);
       
       if (result.success) {
-        // Clear password mode
+        // Clear password mode first
         setIsPasswordMode(prev => ({ ...prev, [terminal.id]: false }));
         setPasswordInput(prev => {
           const newState = { ...prev };
@@ -73,17 +73,16 @@ const TerminalInstance = ({
           return newState;
         });
 
-        // Write connection success and welcome message
-        if (result.welcomeMessage) {
-          termRef.current.writeln(result.welcomeMessage);
+        // Write connection success message
+        termRef.current.writeln('\r\nConnected successfully!');
+        
+        // Write the initial output (Ubuntu welcome message)
+        if (result.initialOutput) {
+          termRef.current.writeln('\r\n' + result.initialOutput);
         }
         
-        // Store the prompt for future use
-        if (result.prompt) {
-          termRef.current.prompt = result.prompt;
-          // Write initial prompt
-          termRef.current.write(result.prompt);
-        }
+        // Add prompt after welcome message
+        termRef.current.write('\r\n$ ');
       } else {
         // Keep password mode and show error
         termRef.current.writeln(`\r\nConnection failed: ${result.error}`);
@@ -115,9 +114,9 @@ const TerminalInstance = ({
   
       term = new Terminal({
         cursorBlink: true,
-        fontSize: 16 * zoomLevel,  // Scale font size with zoom
+        fontSize: 16 * zoomLevel,
         fontFamily: '"Ubuntu Mono", monospace',
-        lineHeight: 1.3,
+        lineHeight: 1.2,
         theme: {
           background: 'transparent',
           foreground: '#33ff33',
@@ -144,8 +143,6 @@ const TerminalInstance = ({
         allowTransparency: true,
         rendererType: 'canvas',
         scrollback: 1000,
-        cols: Math.floor((terminal.size.width * zoomLevel) / BASE_CHAR_WIDTH),
-        rows: Math.floor((terminal.size.height * zoomLevel) / BASE_CHAR_HEIGHT),
       });
       
       fitAddon = new FitAddon();
@@ -213,13 +210,19 @@ const TerminalInstance = ({
     };
   }, [terminal.id, isPasswordMode, handleSSHCommand, passwordInput, handleSSHLogin]);
 
-  // Add zoom effect handler
   useEffect(() => {
     if (termRef.current) {
       termRef.current.options.fontSize = 16 * zoomLevel;
-      fitAddonRef.current?.fit();
+      // Only call fit() once after the font size change
+      requestAnimationFrame(() => {
+        fitAddonRef.current?.fit();
+      });
     }
   }, [zoomLevel]);
+
+  useEffect(() => {
+    fitAddonRef.current?.fit();
+  }, [terminal.size]);
 
   const handleResizeStop = (e, data) => {
     const newSize = {
@@ -260,15 +263,7 @@ const TerminalInstance = ({
         height={terminal.size.height * zoomLevel}
         minConstraints={[300 * zoomLevel, 200 * zoomLevel]}
         maxConstraints={[800 * zoomLevel, 600 * zoomLevel]}
-        onResize={(e, data) => {
-          // Update size in state during resize
-          updateTerminalSize(terminal.id, {
-            width: data.size.width / zoomLevel,
-            height: data.size.height / zoomLevel,
-          });
-          // Single fit call
-          fitAddonRef.current?.fit();
-        }}
+        onResizeStop={handleResizeStop}
         style={{ zIndex: terminal.zIndex }}
         className={`terminal-window ${
           terminal.isMinimized ? "invisible" : ""
