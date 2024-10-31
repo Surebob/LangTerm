@@ -1,4 +1,5 @@
 // SSHService.js
+
 import { supabase } from '../lib/supabaseClient';
 
 class SSHService {
@@ -39,13 +40,13 @@ class SSHService {
 
       console.log('Attempting WebSocket connection to:', this.baseUrl);
       this.ws = new WebSocket(this.baseUrl, [], { headers });
-      
+
       this.ws.onopen = () => {
         console.log('WebSocket connected successfully');
         this.isConnected = true;
         if (this.pingInterval) clearInterval(this.pingInterval); // Clear any existing ping interval
       };
-      
+
       this.ws.onclose = async () => {
         console.log('WebSocket disconnected, attempting reconnect...');
         this.isConnected = false;
@@ -66,10 +67,19 @@ class SSHService {
 
       this.ws.onmessage = (event) => {
         const data = JSON.parse(event.data);
-        
-        const handler = this.messageHandlers.get(data.connectionId) || this.messageHandlers.get('temp');
+
+        console.log('WebSocket received message:', data); // Log received messages
+
+        let handler = this.messageHandlers.get(data.connectionId);
+
+        if (!handler && this.messageHandlers.has('temp')) {
+          handler = this.messageHandlers.get('temp');
+        }
+
         if (handler) {
           handler(data);
+        } else {
+          console.warn('No handler found for message:', data);
         }
       };
     } catch (error) {
@@ -97,7 +107,7 @@ class SSHService {
         console.log('Attempting to parse SSH command:', command);
 
         if (typeof command === 'string' && command.startsWith('ssh ')) {
-          const match = command.match(/ssh\s+([a-zA-Z0-9_-]+)@([a-zA-Z0-9.-]+)(?:\s+-p\s+(\d+))?/);
+          const match = command.match(/ssh\s+([^\s@]+)@([^\s]+)(?:\s+-p\s+(\d+))?/);
           if (!match) {
             console.error('Invalid SSH command format:', command);
             reject(new Error('Invalid SSH command format'));
@@ -113,7 +123,7 @@ class SSHService {
               host,
               username,
               password,
-              port: commandPort || port
+              port: commandPort ? parseInt(commandPort, 10) : port
             }
           }));
         } else {
@@ -123,34 +133,18 @@ class SSHService {
         }
 
         const messageHandler = (data) => {
-          console.log('Received SSH response:', data);
-          let initialOutput = '';
-          let prompt = '';
-          
           if (data.type === 'CONNECTED') {
-            // Initial connection successful, but wait for output
             console.log('SSH Connection established');
-          } else if (data.type === 'OUTPUT') {
-            // Check if this contains a prompt (ANSI sequence)
-            if (data.output.includes('\x1B[?2004h')) {
-              console.log('Received prompt:', data.output);
-              // This is our prompt
-              prompt = data.output;
-              
-              // Resolve with both initial output and prompt
-              resolve({
-                success: true,
-                connectionId: data.connectionId,
-                initialOutput: initialOutput, // Any welcome message received
-                prompt: prompt, // The shell prompt
-                host: data.host,
-                username: data.username
-              });
-            } else {
-              // Accumulate other output as initial message
-              initialOutput += data.output;
-              console.log('Received output:', data.output);
-            }
+            this.messageHandlers.delete('temp');
+
+            // Update the handler with the new connectionId
+            this.messageHandlers.set(data.connectionId, messageHandler);
+
+            // Resolve immediately after connection
+            resolve({
+              success: true,
+              connectionId: data.connectionId
+            });
           } else if (data.type === 'ERROR') {
             this.messageHandlers.delete('temp');
             resolve({
@@ -174,71 +168,36 @@ class SSHService {
     });
   }
 
-  async executeCommand(connectionId, command) {
+  // Method to send data to the SSH session
+  async sendData(connectionId, data) {
     if (!this.isConnected || !this.ws) {
-      return {
-        success: false,
-        error: 'WebSocket not connected'
-      };
+      console.log('WebSocket not connected');
+      return;
     }
 
-    return new Promise((resolve) => {
-      let output = '';
-      let timeout;
+    this.ws.send(JSON.stringify({
+      type: 'DATA',
+      connectionId,
+      data
+    }));
+  }
 
-      // Set up continuous data callback
-      this.messageHandlers.set(connectionId, (data) => {
-        if (data.type === 'OUTPUT') {
-          output += data.output;
-        }
-
-        // Clear existing timeout and set a new one
-        if (timeout) clearTimeout(timeout);
-        timeout = setTimeout(() => {
-          this.messageHandlers.delete(connectionId);
-          resolve({
-            success: true,
-            output,
-            isHtml: true
-          });
-        }, 100); // Wait 100ms after last output before resolving
-      });
-
-      this.ws.send(JSON.stringify({
-        type: 'COMMAND',
-        connectionId,
-        command
-      }));
-    });
+  // Method to register a handler for incoming data
+  onData(connectionId, handler) {
+    this.messageHandlers.set(connectionId, handler);
   }
 
   async disconnect(connectionId) {
-    this.initialize(); // Initialize connection if needed
-    if (!this.isConnected) {
-      return {
-        success: false,
-        error: 'WebSocket not connected'
-      };
+    if (!this.isConnected || !this.ws) {
+      return;
     }
 
-    return new Promise((resolve) => {
-      const messageHandler = (data) => {
-        if (data.type === 'DISCONNECTED') {
-          this.messageHandlers.delete(connectionId);
-          resolve({
-            success: true,
-            message: data.message
-          });
-        }
-      };
+    this.ws.send(JSON.stringify({
+      type: 'DISCONNECT',
+      connectionId
+    }));
 
-      this.messageHandlers.set(connectionId, messageHandler);
-      
-      this.ws.send(JSON.stringify({
-        type: 'DISCONNECT',
-        connectionId
-      }));
-    });
+    this.messageHandlers.delete(connectionId);
   }
 
   // Clean up method
@@ -253,4 +212,3 @@ class SSHService {
 }
 
 export const sshService = new SSHService();
-
