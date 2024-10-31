@@ -4,10 +4,6 @@ import React, { createContext, useState, useEffect } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { sshService } from '../services/SSHService';
 
-const updateGridPosition = (newPosition) => {
-  setGridPosition(newPosition);
-};
-
 export const TerminalContext = createContext();
 
 export const TerminalProvider = ({ children }) => {
@@ -183,15 +179,16 @@ export const TerminalProvider = ({ children }) => {
   };
 
   const updateTerminalPosition = (id, position) => {
-    setTerminals((prevTerminals) =>
-      prevTerminals.map((terminal) =>
-        terminal.id === id ? { 
-          ...terminal, 
-          position,
-          lastPosition: null // Clear lastPosition when manually moved
-        } : terminal
-      )
-    );
+    setTerminals((prevTerminals) => {
+      return prevTerminals.map((terminal) =>
+        terminal.id === id
+          ? {
+              ...terminal,
+              position,
+            }
+          : terminal
+      );
+    });
   };
 
   const updateTerminalSize = (id, size) => {
@@ -257,6 +254,7 @@ export const TerminalProvider = ({ children }) => {
 
   const connectSSH = async (terminalId, storedCommand, password) => {
     try {
+      // Parse the SSH command
       const match = storedCommand.match(/ssh\s+(\w+)@([\w.-]+)(?:\s+-p\s+(\d+))?/);
       if (!match) {
         return {
@@ -266,11 +264,13 @@ export const TerminalProvider = ({ children }) => {
       }
 
       const [, username, host, port] = match;
+      console.log('Attempting SSH connection:', { username, host, port, hasPassword: !!password }); // Log for debugging
 
-      // Use connectSSH from sshService
+      // Connect using SSHService with the password
       const result = await sshService.connectSSH(host, username, password, port || 22);
       
-      if (result.connectionId) {  // Check for connectionId instead of success
+      if (result.connectionId) {
+        // Store the successful connection
         setSSHConnections(prev => ({
           ...prev,
           [terminalId]: {
@@ -289,14 +289,14 @@ export const TerminalProvider = ({ children }) => {
 
       return {
         success: false,
-        error: result.error || 'Failed to connect'
+        error: 'Failed to establish SSH connection'
       };
 
     } catch (error) {
       console.error('SSH Connection error:', error);
       return {
         success: false,
-        error: error.message || 'Failed to connect'
+        error: error.message || 'Authentication failed. Please check your credentials.'
       };
     }
   };

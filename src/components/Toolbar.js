@@ -309,7 +309,7 @@ const Toolbar = () => {
                         // Store the SSH command and set password mode
                         setPasswordInput(prev => ({
                           ...prev,
-                          [terminalId]: "ssh root@67.207.88.232"
+                          [terminalId]: "ssh root@loadguard.ai"
                         }));
                         setIsPasswordMode(prev => ({
                           ...prev,
@@ -321,7 +321,7 @@ const Toolbar = () => {
                       className="flex items-center px-4 py-2 hover:bg-white/10 cursor-pointer transition-colors duration-200"
                     >
                       <Code2 size={16} className="mr-2" />
-                      root@67.207.88.232
+                      root@loadguard.ai
                     </li>
                   </ul>
                 )}

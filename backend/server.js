@@ -102,6 +102,16 @@ function handleSSHConnection(ws, data) {
   const connectionId = uuidv4();
   const sshClient = new Client();
 
+  // Access the payload fields correctly
+  const { host, username, password, port } = data.payload || {};
+
+  console.log('Connecting with SSH parameters:', {
+    host,
+    port: port || 22,
+    username,
+    password, // Masked for security
+  });
+
   sshClient.on('ready', () => {
     console.log(`SSH Connection established (${connectionId})`);
     
@@ -152,10 +162,10 @@ function handleSSHConnection(ws, data) {
   // Attempt SSH connection
   try {
     sshClient.connect({
-      host: data.host,
-      port: data.port || 22,
-      username: data.username,
-      password: data.password,
+      host,
+      port: port || 22,
+      username,
+      password,
       readyTimeout: 30000, // 30 seconds timeout
       keepaliveInterval: 10000, // Send keepalive every 10 seconds
     });

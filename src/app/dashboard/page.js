@@ -16,16 +16,18 @@ export default function Dashboard() {
 
   useEffect(() => {
     // Initialize WebSocket connection when dashboard loads
-    sshService.initialize();
 
     const checkSession = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
         router.push('/auth/login');  // Redirect to login if no session
+      } else {
+        sshService.initialize();
       }
     };
 
     checkSession();
+    
   }, [router]);
 
   return (

@@ -1,9 +1,9 @@
-"use client";
-
-import React, { useContext, useState, useRef } from "react";
-import { ResizableBox } from "react-resizable";
+// TerminalWindow.js
+import React, { useContext, useState, useRef, useEffect } from "react";
 import { TerminalContext } from "../context/TerminalContext";
+import TerminalInstance from "./TerminalInstance";
 import "react-resizable/css/styles.css";
+import "xterm/css/xterm.css";
 
 const TerminalWindow = () => {
   const {
@@ -14,6 +14,7 @@ const TerminalWindow = () => {
     closeTerminal,
     updateTerminalPosition,
     updateTerminalSize,
+    updateTerminalName,
     bringToFront,
   } = useContext(TerminalContext);
 
@@ -42,16 +43,16 @@ const TerminalWindow = () => {
   };
 
   const handleMouseDown = (e, terminal) => {
-    if (!e.target.closest('.handle')) return;
+    if (!e.target.closest(".handle")) return;
 
     setIsDragging(true);
     dragRefs.current.activeId = terminal.id;
-    
+
     setDragStart({
       x: e.clientX - (terminal.position.x * zoomLevel + gridPosition.x),
       y: e.clientY - (terminal.position.y * zoomLevel + gridPosition.y),
     });
-    
+
     bringToFront(terminal.id);
     e.preventDefault();
   };
@@ -61,134 +62,63 @@ const TerminalWindow = () => {
     dragRefs.current.activeId = null;
   };
 
-  React.useEffect(() => {
+  useEffect(() => {
     const handleMouseMove = (e) => {
       if (!isDragging || !dragRefs.current.activeId) return;
-  
-      const terminal = terminals.find((t) => t.id === dragRefs.current.activeId);
+
+      const terminal = terminals.find(
+        (t) => t.id === dragRefs.current.activeId
+      );
       if (!terminal) return;
-  
+
       const newX = (e.clientX - dragStart.x - gridPosition.x) / zoomLevel;
       const newY = (e.clientY - dragStart.y - gridPosition.y) / zoomLevel;
-  
+
       updateTerminalPosition(terminal.id, {
         x: newX,
         y: newY,
       });
     };
-  
+
     if (isDragging) {
-      window.addEventListener('mousemove', handleMouseMove);
-      window.addEventListener('mouseup', handleMouseUp);
+      window.addEventListener("mousemove", handleMouseMove);
+      window.addEventListener("mouseup", handleMouseUp);
     }
     return () => {
-      window.removeEventListener('mousemove', handleMouseMove);
-      window.removeEventListener('mouseup', handleMouseUp);
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("mouseup", handleMouseUp);
     };
-  }, [isDragging, dragStart, gridPosition, zoomLevel, terminals, updateTerminalPosition]);
+  }, [
+    isDragging,
+    dragStart,
+    gridPosition.x,
+    gridPosition.y,
+    zoomLevel,
+    terminals,
+    updateTerminalPosition,
+  ]);
 
   return (
     <>
       {terminals.map((terminal) => (
-        <div
+        <TerminalInstance
           key={terminal.id}
-          ref={el => dragRefs.current[terminal.id] = el}
-          data-id={terminal.id}
-          style={{
-            position: "absolute",
-            left: `${terminal.position.x * zoomLevel + gridPosition.x}px`,
-            top: `${terminal.position.y * zoomLevel + gridPosition.y}px`,
-            zIndex: terminal.zIndex,
-            width: `${terminal.size.width * zoomLevel}px`,
-            height: `${terminal.size.height * zoomLevel}px`,
-            cursor: isDragging && dragRefs.current.activeId === terminal.id ? 'grabbing' : 'default',
-          }}
-          onMouseDown={(e) => handleMouseDown(e, terminal)}
-        >
-          <ResizableBox
-            width={terminal.size.width * zoomLevel}
-            height={terminal.size.height * zoomLevel}
-            minConstraints={[300 * zoomLevel, 200 * zoomLevel]}
-            maxConstraints={[800 * zoomLevel, 600 * zoomLevel]}
-            onResizeStop={(e, data) => {
-              updateTerminalSize(terminal.id, {
-                width: data.size.width / zoomLevel,
-                height: data.size.height / zoomLevel,
-              });
-            }}
-            style={{ zIndex: terminal.zIndex }}
-            className={`terminal-window ${terminal.isMinimized ? "invisible" : ""}`}
-          >
-            <div
-              className="flex flex-col h-full"
-              onClick={() => handleTerminalClick(terminal.id)}
-              style={{ fontSize: `${16 * zoomLevel}px` }}
-            >
-              {/* Terminal Header */}
-              <div
-                className="handle terminal-header p-2 flex justify-between items-center cursor-move relative"
-                style={{ padding: `${8 * zoomLevel}px` }}
-              >
-                {editingTerminalId === terminal.id ? (
-                  <input
-                    type="text"
-                    value={tempName}
-                    onChange={handleNameChange}
-                    onBlur={() => handleNameBlur(terminal.id)}
-                    autoFocus
-                    className="bg-transparent text-white border-none focus:ring-0 w-32 absolute left-1/2 transform -translate-x-1/2"
-                    style={{ fontSize: `${16 * zoomLevel}px` }}
-                  />
-                ) : (
-                  <span
-                    className="font-mono cursor-pointer absolute left-1/2 transform -translate-x-1/2"
-                    onClick={() => handleNameClick(terminal.id, terminal.name)}
-                    style={{ fontSize: `${16 * zoomLevel}px` }}
-                  >
-                    {terminal.name || "Terminal"}
-                  </span>
-                )}
-                <div className="ml-auto flex" style={{ gap: `${8 * zoomLevel}px` }}>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      toggleMinimizeTerminal(terminal.id);
-                    }}
-                    className="w-3 h-3 bg-yellow-400 rounded-full focus:outline-none cursor-pointer"
-                    aria-label="Minimize Terminal"
-                    style={{
-                      width: `${16 * zoomLevel}px`,
-                      height: `${16 * zoomLevel}px`,
-                      flexShrink: 0,
-                    }}
-                  ></button>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      closeTerminal(terminal.id);
-                    }}
-                    className="w-3 h-3 bg-red-500 rounded-full focus:outline-none cursor-pointer"
-                    aria-label="Close Terminal"
-                    style={{
-                      width: `${16 * zoomLevel}px`,
-                      height: `${16 * zoomLevel}px`,
-                      flexShrink: 0,
-                    }}
-                  ></button>
-                </div>
-              </div>
-
-              {/* Terminal Body - Placeholder for xterm.js */}
-              <div
-                id={`terminal-${terminal.id}`}
-                className="flex-1 bg-transparent"
-                style={{ 
-                  height: `calc(100% - ${40 * zoomLevel}px)`
-                }}
-              />
-            </div>
-          </ResizableBox>
-        </div>
+          terminal={terminal}
+          gridPosition={gridPosition}
+          zoomLevel={zoomLevel}
+          isDragging={isDragging}
+          dragRefs={dragRefs}
+          handleMouseDown={handleMouseDown}
+          handleTerminalClick={bringToFront}
+          updateTerminalSize={updateTerminalSize}
+          toggleMinimizeTerminal={toggleMinimizeTerminal}
+          closeTerminal={closeTerminal}
+          editingTerminalId={editingTerminalId}
+          tempName={tempName}
+          handleNameClick={handleNameClick}
+          handleNameChange={handleNameChange}
+          handleNameBlur={handleNameBlur}
+        />
       ))}
     </>
   );

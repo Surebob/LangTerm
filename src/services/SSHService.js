@@ -8,14 +8,14 @@ class SSHService {
     this.messageHandlers = new Map();
     this.isConnected = false;
     this.pingInterval = null;
+    this.reconnectInterval = 2000;  // Reconnection delay in milliseconds
   }
 
   async initialize() {
     if (typeof window === 'undefined') return;
-    if (this.ws) return;
+    if (this.ws && this.isConnected) return;
 
     const isProd = window.location.hostname === 'langterm.ai';
-    
     this.baseUrl = isProd
       ? 'wss://backend.langterm.ai/ws'
       : 'ws://localhost:8080';
@@ -43,31 +43,27 @@ class SSHService {
       this.ws.onopen = () => {
         console.log('WebSocket connected successfully');
         this.isConnected = true;
+        if (this.pingInterval) clearInterval(this.pingInterval); // Clear any existing ping interval
       };
       
-      this.ws.onclose = () => {
+      this.ws.onclose = async () => {
         console.log('WebSocket disconnected, attempting reconnect...');
         this.isConnected = false;
-        if (this.pingInterval) {
-          clearInterval(this.pingInterval);
+        if (this.pingInterval) clearInterval(this.pingInterval);
+
+        // Check if session is still active before reconnecting
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session) {
+          setTimeout(() => this.connect(headers), this.reconnectInterval);
+        } else {
+          console.log('Session expired, not reconnecting.');
         }
-        // Add delay before reconnect
-        setTimeout(() => this.connect(headers), 2000);
       };
 
       this.ws.onerror = (error) => {
-        console.error('WebSocket error:', {
-          message: error.message,
-          type: error.type,
-          error: error.error,
-          target: {
-            url: error.target?.url,
-            readyState: error.target?.readyState,
-            protocol: error.target?.protocol
-          }
-        });
+        console.error('WebSocket error:', error);
       };
-      
+
       this.ws.onmessage = (event) => {
         const data = JSON.parse(event.data);
         console.log('WebSocket received:', data);
@@ -77,7 +73,6 @@ class SSHService {
           handler(data);
         }
       };
-
     } catch (error) {
       console.error('Failed to create WebSocket:', error);
     }
@@ -99,32 +94,38 @@ class SSHService {
 
     return new Promise((resolve, reject) => {
       try {
-        console.log('Sending SSH connection request...');
+        console.log('Sending SSH connection request...', { host, username, password, port }); // Log full payload before sending
+        
+        // Send connection request with credentials
         this.ws.send(JSON.stringify({
           type: 'CONNECT',
-          host,
-          username,
-          password,
-          port
+          payload: {
+            host,
+            username,
+            password,
+            port
+          }
         }));
 
         const messageHandler = (data) => {
+          console.log('Received SSH response:', data);
+          
           if (data.type === 'CONNECTED') {
             this.messageHandlers.delete('temp');
             resolve({
               success: true,
               connectionId: data.connectionId,
-              message: data.message
+              message: data.message || 'Connected successfully'
             });
           } else if (data.type === 'ERROR') {
             this.messageHandlers.delete('temp');
-            reject(new Error(data.error));
+            reject(new Error(data.error || 'Authentication failed'));
           }
         };
 
         this.messageHandlers.set('temp', messageHandler);
 
-        // Increase timeout to 30 seconds
+        // Set timeout for connection attempt
         setTimeout(() => {
           this.messageHandlers.delete('temp');
           reject(new Error('SSH connection timeout'));
@@ -218,14 +219,3 @@ class SSHService {
 
 export const sshService = new SSHService();
 
-// Initialize WebSocket when the service is imported
-if (typeof window !== 'undefined') {
-  // Wait for the DOM to be ready
-  if (document.readyState === 'complete') {
-    sshService.initialize();
-  } else {
-    window.addEventListener('load', () => {
-      sshService.initialize();
-    });
-  }
-}
