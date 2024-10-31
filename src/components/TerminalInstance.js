@@ -1,8 +1,11 @@
+// TerminalInstance.js
+
 // Import React and other dependencies
 import React, { useEffect, useRef, memo, useState, useContext } from "react";
 import { ResizableBox } from "react-resizable";
 import "xterm/css/xterm.css";
 import { TerminalContext } from "../context/TerminalContext";
+import { sshService } from "../services/SSHService"; // Import sshService
 
 // Add these constants at the top of the file, after imports
 const BASE_CHAR_WIDTH = 9;  // Base width of a character in pixels
@@ -38,8 +41,7 @@ const TerminalInstance = ({
     isPasswordMode, 
     connectSSH, 
     setPasswordInput, 
-    setIsPasswordMode,
-    handleSSHCommand 
+    setIsPasswordMode
   } = useContext(TerminalContext);
 
   const termRef = useRef(null);
@@ -50,6 +52,16 @@ const TerminalInstance = ({
 
   // Create a ref to store the password
   const passwordRef = useRef('');
+
+  // Create a ref to store isPasswordMode for this terminal
+  const isPasswordModeRef = useRef(isPasswordMode[terminal.id]);
+
+  useEffect(() => {
+    isPasswordModeRef.current = isPasswordMode[terminal.id];
+  }, [isPasswordMode, terminal.id]);
+
+  // Create a ref to store the connectionId
+  const connectionIdRef = useRef(null);
 
   // Move handleSSHLogin outside of useEffect and make it a useCallback
   const handleSSHLogin = React.useCallback(async () => {
@@ -65,6 +77,9 @@ const TerminalInstance = ({
       const result = await connectSSH(terminal.id, storedCommand, currentPassword);
       
       if (result.success) {
+        // Store connectionId
+        connectionIdRef.current = result.connectionId;
+
         // Clear password mode first
         setIsPasswordMode(prev => ({ ...prev, [terminal.id]: false }));
         setPasswordInput(prev => {
@@ -73,24 +88,43 @@ const TerminalInstance = ({
           return newState;
         });
 
-        // Write connection success message
-        termRef.current.writeln('\r\nConnected successfully!');
-        
-        // Write the initial output (Ubuntu welcome message)
-        if (result.initialOutput) {
-          termRef.current.writeln('\r\n' + result.initialOutput);
-        }
-        
-        // Add prompt after welcome message
-        termRef.current.write('\r\n$ ');
+        // Set up handler for incoming data using the stored connectionId
+        sshService.onData(connectionIdRef.current, (data) => {
+          console.log('Received data from SSH session:', data); // Log incoming data
+
+          if (termRef.current) {
+            console.log('termRef.current exists. Writing data to terminal.');
+          } else {
+            console.error('termRef.current is null or undefined.');
+          }
+
+          if (data.type === 'OUTPUT') {
+            // Handle the output data
+            console.log('Writing output to terminal:', data.output);
+            termRef.current.write(data.output); // Use write instead of writeln
+            console.log('Write operation completed.');
+          } else if (data.type === 'ERROR') {
+            // Handle any errors
+            console.error('SSH Error:', data.error);
+            termRef.current.write(`\r\nError: ${data.error}\r\n`); // Use write for errors as well
+          }
+        });
+
+        // Just a newline to separate
+        termRef.current.write('\r\n');
+
+        // Optionally, write a message indicating successful connection
+        termRef.current.write('SSH connection established.\r\n');
+        // Write a static test message (can be removed after testing)
+        termRef.current.write('Static test message.\r\n');
       } else {
         // Keep password mode and show error
-        termRef.current.writeln(`\r\nConnection failed: ${result.error}`);
+        termRef.current.write(`\r\nConnection failed: ${result.error}\r\n`);
         termRef.current.write('\r\nEnter password: ');
       }
     } catch (error) {
       console.error('SSH Login error:', error);
-      termRef.current.writeln(`\r\nConnection error: ${error.message}`);
+      termRef.current.write(`\r\nConnection error: ${error.message}\r\n`);
       termRef.current.write('\r\nEnter password: ');
     }
 
@@ -108,18 +142,18 @@ const TerminalInstance = ({
       initializationRef.current = true;
       
       console.log("Initializing xterm instance for Terminal ID:", terminal.id);
-  
+
       const { Terminal } = await import("xterm");
       const { FitAddon } = await import("xterm-addon-fit");
-  
+
       term = new Terminal({
         cursorBlink: true,
         fontSize: 16 * zoomLevel,
         fontFamily: '"Ubuntu Mono", monospace',
         lineHeight: 1.2,
         theme: {
-          background: 'transparent',
-          foreground: '#33ff33',
+          background: 'transparent',          // Restore original background
+          foreground: '#33ff33',             // Restore original green foreground
           cursor: '#33ff33',
           cursorAccent: '#000000',
           selection: 'rgba(255, 255, 255, 0.3)',
@@ -140,27 +174,26 @@ const TerminalInstance = ({
           brightCyan: '#34e2e2',
           brightWhite: '#eeeeec'
         },
-        allowTransparency: true,
+        allowTransparency: true,              // Set back to true if originally set
         rendererType: 'canvas',
         scrollback: 1000,
       });
       
       fitAddon = new FitAddon();
       term.loadAddon(fitAddon);
-  
+
       if (terminalDivRef.current) {
         term.open(terminalDivRef.current);
         fitAddon.fit();
         
         if (isPasswordMode[terminal.id]) {
           term.write('Enter password: ');
-        } else {
-          term.writeln('Welcome to xTerm.js');
-          term.write('\r\n$ ');
         }
         
+        term.focus(); // Ensure the terminal is focused
+        
         term.onData(data => {
-          if (isPasswordMode[terminal.id]) {
+          if (isPasswordModeRef.current) {
             if (data === '\r') {
               term.write('\r\n');
               handleSSHLogin();
@@ -176,29 +209,29 @@ const TerminalInstance = ({
               term.write('*');
             }
           } else {
-            handleSSHCommand(terminal.id, data).then(result => {
-              if (result.success) {
-                term.write(result.output);
-              } else {
-                term.write(`\r\nError: ${result.error}\r\n`);
-              }
-            });
+            // Send data directly to SSH session
+            if (connectionIdRef.current) {
+              sshService.sendData(connectionIdRef.current, data);
+            }
           }
         });
 
         term.onBinary(data => {
-          if (!isPasswordMode[terminal.id]) {
-            term.write(data);
+          if (!isPasswordModeRef.current) {
+            // Send binary data to SSH session
+            if (connectionIdRef.current) {
+              sshService.sendData(connectionIdRef.current, data);
+            }
           }
         });
       }
-  
+
       termRef.current = term;
       fitAddonRef.current = fitAddon;
     };
-  
+
     initTerminal();
-  
+
     return () => {
       if (termRef.current) {
         termRef.current.dispose();
@@ -206,9 +239,14 @@ const TerminalInstance = ({
         fitAddonRef.current = null;
         initializationRef.current = false;
         passwordRef.current = ''; // Clear password on cleanup
+        // Clean up SSH session
+        if (connectionIdRef.current) {
+          sshService.disconnect(connectionIdRef.current);
+          connectionIdRef.current = null;
+        }
       }
     };
-  }, [terminal.id, isPasswordMode, handleSSHCommand, passwordInput, handleSSHLogin]);
+  }, [terminal.id, isPasswordMode, passwordInput, handleSSHLogin, zoomLevel]);
 
   useEffect(() => {
     if (termRef.current) {
