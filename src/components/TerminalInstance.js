@@ -73,9 +73,16 @@ const TerminalInstance = ({
           return newState;
         });
 
-        // Write welcome message
-        if (result.initialOutput) {
-          termRef.current.write(result.initialOutput);
+        // Write connection success and welcome message
+        if (result.welcomeMessage) {
+          termRef.current.writeln(result.welcomeMessage);
+        }
+        
+        // Store the prompt for future use
+        if (result.prompt) {
+          termRef.current.prompt = result.prompt;
+          // Write initial prompt
+          termRef.current.write(result.prompt);
         }
       } else {
         // Keep password mode and show error

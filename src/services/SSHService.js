@@ -66,7 +66,6 @@ class SSHService {
 
       this.ws.onmessage = (event) => {
         const data = JSON.parse(event.data);
-        console.log('WebSocket received:', data);
         
         const handler = this.messageHandlers.get(data.connectionId) || this.messageHandlers.get('temp');
         if (handler) {
@@ -125,17 +124,33 @@ class SSHService {
 
         const messageHandler = (data) => {
           console.log('Received SSH response:', data);
+          let initialOutput = '';
+          let prompt = '';
           
           if (data.type === 'CONNECTED') {
-            this.messageHandlers.delete('temp');
-            resolve({
-              success: true,
-              connectionId: data.connectionId,
-              message: data.message,
-              initialOutput: data.output,
-              host: data.host,
-              username: data.username
-            });
+            // Initial connection successful, but wait for output
+            console.log('SSH Connection established');
+          } else if (data.type === 'OUTPUT') {
+            // Check if this contains a prompt (ANSI sequence)
+            if (data.output.includes('\x1B[?2004h')) {
+              console.log('Received prompt:', data.output);
+              // This is our prompt
+              prompt = data.output;
+              
+              // Resolve with both initial output and prompt
+              resolve({
+                success: true,
+                connectionId: data.connectionId,
+                initialOutput: initialOutput, // Any welcome message received
+                prompt: prompt, // The shell prompt
+                host: data.host,
+                username: data.username
+              });
+            } else {
+              // Accumulate other output as initial message
+              initialOutput += data.output;
+              console.log('Received output:', data.output);
+            }
           } else if (data.type === 'ERROR') {
             this.messageHandlers.delete('temp');
             resolve({
