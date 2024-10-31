@@ -9,6 +9,7 @@ import {
   SquareTerminal,
   ChevronLeft,
   ChevronRight,
+  ChevronUp,
   Eye,
   EyeOff,
   ChevronRight as ArrowRight,
@@ -46,6 +47,16 @@ import {
 } from "@/components/ui/alert"
 import { CheckCircle2, AlertCircle } from "lucide-react"
 import Image from 'next/image';
+import {
+  Drawer,
+  DrawerClose,
+  DrawerContent,
+  DrawerDescription,
+  DrawerFooter,
+  DrawerHeader,
+  DrawerTitle,
+  DrawerTrigger,
+} from "@/components/ui/drawer"; // Ensure correct import path
 
 const Toolbar = () => {
   const router = useRouter();
@@ -71,6 +82,7 @@ const Toolbar = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [openSubmenu, setOpenSubmenu] = useState(null);
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
 
   // Refs for menus and buttons
   const menuRef = useRef(null);
@@ -273,6 +285,97 @@ const Toolbar = () => {
         >
           <SquareTerminal size={24} />
         </button>
+
+        <Drawer open={isDrawerOpen} onOpenChange={setIsDrawerOpen}>
+          <DrawerContent className="drawer">
+            <div className="flex flex-row justify-between">
+              <div className="flex flex-col">
+                <DrawerHeader className="flex justify-between px-8">
+                  <div>
+                    <DrawerTitle className="text-white">Add SSH Connection</DrawerTitle>
+                    <DrawerDescription className="text-gray-400">
+                      Add a new SSH connection to your list.
+                    </DrawerDescription>
+                  </div>
+                </DrawerHeader>
+                
+                <div className="terminal-window flex flex-row items-start gap-4 py-4 p-8 ml-8">
+                  <div className="flex flex-col items-start gap-4 py-4">
+                    <div className="flex flex-col items-start gap-2">
+                      <label className="text-right text-white" htmlFor="username">
+                        Username
+                      </label>
+                      <input
+                        id="username"
+                        name="username"
+                        className="col-span-3 bg-transparent border border-white/20 rounded p-2 text-white"
+                        placeholder="Enter username"
+                        required
+                      />
+                    </div>
+
+                    <div className="flex flex-col items-start gap-2">
+                      <label className="text-right text-white" htmlFor="hostname">
+                        Hostname
+                      </label>
+                      <input
+                        id="hostname"
+                        name="hostname"
+                        className="col-span-3 bg-transparent border border-white/20 rounded p-2 text-white"
+                        placeholder="Enter hostname"
+                        required
+                      />
+                    </div>
+                  </div>
+                  <div className="flex flex-col items-start gap-4 py-4 p-4">
+                    <div className="flex flex-col items-start gap-2">
+                      <label className="text-right text-white" htmlFor="port">
+                        Port (optional)
+                      </label>
+                      <input
+                        id="port"
+                        name="port"
+                        type="number"
+                        className="col-span-3 bg-transparent border border-white/20 rounded p-2 text-white"
+                        placeholder="22"
+                      />
+                    </div>
+
+                    <div className="flex flex-col items-start gap-2">
+                      <label className="text-right text-white" htmlFor="password">
+                        Password
+                      </label>
+                      <input
+                        id="password"
+                        name="password"
+                        type="password"
+                        className="col-span-3 bg-transparent border border-white/20 rounded p-2 text-white"
+                        placeholder="Enter password"
+                        required
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex flex-col">
+                <DrawerHeader className="flex justify-between px-8" style={{ marginLeft: 'auto' }}>
+                  <div className="text-white">
+                    <DrawerTitle className="text-white">Saved Connections</DrawerTitle>
+                  </div>
+                </DrawerHeader>
+                
+                <div className="bg-glassmorphism flex flex-row items-start gap-4 py-4 p-8">
+
+                </div>
+              </div>
+            </div>
+            <DrawerFooter className="flex justify-end mt-6">
+            </DrawerFooter>
+          </DrawerContent>
+        </Drawer>
+
+
         {/* Dropdown Menu */}
         {isMenuOpen && (
           <div
@@ -299,26 +402,29 @@ const Toolbar = () => {
                     <li
                       onClick={async () => {
                         const terminalId = addTerminal();
-                        // Show 'Enter password:' prompt in the terminal
-                        addCommandToTerminal(terminalId, "", "Enter password:", false);
-
-                        // Store the SSH command and activate password mode
-                        setPasswordInput((prev) => ({
+                        // Don't show the command in the terminal yet
+                        addCommandToTerminal(
+                          terminalId,
+                          "",  // Empty command
+                          "Enter password:",
+                          false
+                        );
+                        // Store the SSH command and set password mode
+                        setPasswordInput(prev => ({
                           ...prev,
-                          [terminalId]: "ssh root@67.207.88.232", // Replace with your SSH command
+                          [terminalId]: "ssh root@loadguard.ai"
                         }));
-                        setIsPasswordMode((prev) => ({
+                        setIsPasswordMode(prev => ({
                           ...prev,
-                          [terminalId]: true,
+                          [terminalId]: true
                         }));
-
                         setIsMenuOpen(false);
                         setOpenSubmenu(null);
                       }}
                       className="flex items-center px-4 py-2 hover:bg-white/10 cursor-pointer transition-colors duration-200"
                     >
                       <Code2 size={16} className="mr-2" />
-                      root@67.207.88.232
+                      root@loadguard.ai
                     </li>
                   </ul>
                 )}
@@ -434,7 +540,18 @@ const Toolbar = () => {
         >
           <Settings size={24} />
         </button>
-
+        <button
+          onClick={() => setIsDrawerOpen(true)}
+          className="actionButtonStyles ml-2 
+            flex items-center justify-center
+            bg-glassmorphism text-white rounded cursor-pointer
+            border border-white/20 backdrop-blur-md transition-all duration-200
+            hover:bg-white/10 hover:scale-105
+            w-9 h-9" // Style and position as needed
+          aria-label="Open Drawer"
+        >
+          <ChevronUp size={24} /> {/* ^ Icon or any other icon */}
+        </button>
         {/* Settings Dropdown Menu */}
         {isSettingsOpen && (
           <div
@@ -473,7 +590,7 @@ const Toolbar = () => {
       </div>
 
       <Sheet open={isProfileOpen} onOpenChange={setIsProfileOpen}>
-        <SheetContent className="bg-glassmorphism backdrop-blur-2xl border-white/20">
+        <SheetContent className="setting-right">
           <SheetHeader>
             <SheetTitle className="text-white">Profile Settings</SheetTitle>
             <SheetDescription className="text-gray-400">
