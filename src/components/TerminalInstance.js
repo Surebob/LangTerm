@@ -6,6 +6,7 @@ import { ResizableBox } from "react-resizable";
 import "xterm/css/xterm.css";
 import { TerminalContext } from "../context/TerminalContext";
 import { sshService } from "../services/SSHService"; // Import sshService
+import { v4 as uuidv4 } from 'uuid';
 
 // Add these constants at the top of the file, after imports
 const BASE_CHAR_WIDTH = 9;  // Base width of a character in pixels
@@ -73,13 +74,40 @@ const TerminalInstance = ({
       return;
     }
 
+    // Generate the connectionId here
+    const connectionId = uuidv4();
+    connectionIdRef.current = connectionId;
+
+    // Register the handler before initiating the connection
+    sshService.onData(connectionId, (data) => {
+      console.log('Terminal received data:', data); // Debug log
+
+      if (termRef.current) {
+        switch (data.type) {
+          case 'OUTPUT':
+            termRef.current.write(data.output);
+            break;
+
+          case 'WELCOME':
+            termRef.current.write(data.welcomeMessage);
+            termRef.current.write(data.prompt);
+            break;
+
+          case 'PROMPT':
+            termRef.current.write(data.prompt);
+            break;
+
+          case 'ERROR':
+            termRef.current.write(`\r\nError: ${data.error}\r\n`);
+            break;
+        }
+      }
+    });
+
     try {
-      const result = await connectSSH(terminal.id, storedCommand, currentPassword);
+      const result = await sshService.connectSSH(connectionId, storedCommand, currentPassword);
       
       if (result.success) {
-        // Store connectionId
-        connectionIdRef.current = result.connectionId;
-
         // Clear password mode first
         setIsPasswordMode(prev => ({ ...prev, [terminal.id]: false }));
         setPasswordInput(prev => {
@@ -87,36 +115,6 @@ const TerminalInstance = ({
           delete newState[terminal.id];
           return newState;
         });
-
-        // Set up handler for incoming data using the stored connectionId
-        sshService.onData(connectionIdRef.current, (data) => {
-          console.log('Received data from SSH session:', data); // Log incoming data
-
-          if (termRef.current) {
-            console.log('termRef.current exists. Writing data to terminal.');
-          } else {
-            console.error('termRef.current is null or undefined.');
-          }
-
-          if (data.type === 'OUTPUT') {
-            // Handle the output data
-            console.log('Writing output to terminal:', data.output);
-            termRef.current.write(data.output); // Use write instead of writeln
-            console.log('Write operation completed.');
-          } else if (data.type === 'ERROR') {
-            // Handle any errors
-            console.error('SSH Error:', data.error);
-            termRef.current.write(`\r\nError: ${data.error}\r\n`); // Use write for errors as well
-          }
-        });
-
-        // Just a newline to separate
-        termRef.current.write('\r\n');
-
-        // Optionally, write a message indicating successful connection
-        termRef.current.write('SSH connection established.\r\n');
-        // Write a static test message (can be removed after testing)
-        termRef.current.write('Static test message.\r\n');
       } else {
         // Keep password mode and show error
         termRef.current.write(`\r\nConnection failed: ${result.error}\r\n`);
@@ -131,7 +129,7 @@ const TerminalInstance = ({
     // Clear password
     passwordRef.current = '';
     setPassword('');
-  }, [terminal.id, passwordInput, connectSSH, setIsPasswordMode, setPasswordInput]);
+  }, [terminal.id, passwordInput, setIsPasswordMode, setPasswordInput]);
 
   useEffect(() => {
     if (initializationRef.current || termRef.current) return;

@@ -1,6 +1,7 @@
 // SSHService.js
 
 import { supabase } from '../lib/supabaseClient';
+import { v4 as uuidv4 } from 'uuid';
 
 class SSHService {
   constructor() {
@@ -70,14 +71,23 @@ class SSHService {
 
         console.log('WebSocket received message:', data); // Log received messages
 
-        let handler = this.messageHandlers.get(data.connectionId);
-
-        if (!handler && this.messageHandlers.has('temp')) {
-          handler = this.messageHandlers.get('temp');
-        }
+        const handler = this.messageHandlers.get(data.connectionId);
 
         if (handler) {
-          handler(data);
+          if (data.type === 'OUTPUT') {
+            handler({
+              type: 'OUTPUT',
+              output: data.output
+            });
+          } else if (data.type === 'WELCOME') {
+            handler({
+              type: 'WELCOME',
+              welcomeMessage: data.welcomeMessage,
+              prompt: data.prompt
+            });
+          } else {
+            handler(data);
+          }
         } else {
           console.warn('No handler found for message:', data);
         }
@@ -87,7 +97,7 @@ class SSHService {
     }
   }
 
-  async connectSSH(command, password, port = 22) {
+  async connectSSH(connectionId, command, password, port = 22) {
     if (!this.isConnected || !this.ws) {
       console.log('WebSocket not connected, attempting to reconnect...');
       await new Promise((resolve) => {
@@ -117,8 +127,10 @@ class SSHService {
           const [, username, host, commandPort] = match;
           console.log('Parsed SSH command:', { username, host, port: commandPort || port });
 
+          // Send the connection request with the client-generated connectionId
           this.ws.send(JSON.stringify({
             type: 'CONNECT',
+            connectionId, // Include the connectionId
             payload: {
               host,
               username,
@@ -135,10 +147,9 @@ class SSHService {
         const messageHandler = (data) => {
           if (data.type === 'CONNECTED') {
             console.log('SSH Connection established');
-            this.messageHandlers.delete('temp');
 
-            // Update the handler with the new connectionId
-            this.messageHandlers.set(data.connectionId, messageHandler);
+            // Remove the temporary handler
+            this.messageHandlers.delete('temp');
 
             // Resolve immediately after connection
             resolve({
@@ -146,20 +157,26 @@ class SSHService {
               connectionId: data.connectionId
             });
           } else if (data.type === 'ERROR') {
+            // Clear the timeout on error
+
+            // Remove the temporary handler
             this.messageHandlers.delete('temp');
+
             resolve({
               success: false,
               error: data.error
             });
+          } else {
+            // Pass other messages to the handler
+            const handler = this.messageHandlers.get(connectionId);
+            if (handler) {
+              handler(data);
+            }
           }
         };
 
+        // Register the temporary handler
         this.messageHandlers.set('temp', messageHandler);
-
-        setTimeout(() => {
-          this.messageHandlers.delete('temp');
-          reject(new Error('SSH connection timeout'));
-        }, 30000);
 
       } catch (error) {
         console.error('Error in connectSSH:', error);
